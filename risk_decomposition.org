@@ -1,0 +1,67 @@
+#+Title: Risk Decomposition Analysis
+#+Author: Drew
+
+#+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :results graphics file :dir (projectile-project-root) :mkdirp yes
+
+
+#+begin_src jupyter-python :exports none
+import matplotlib.pyplot as plt
+import numpy as np
+
+from src.data.universe import load_universe
+from src.data.interface import get_returns
+from src.model.regression import rolling_forward_decompose, sample_forward_decompose
+from src.model.risk import rolling_risk_decomposition, sample_risk_decomposition
+from src.viz.risk_plots import (plot_sample_risk_decomposition,
+                                plot_rolling_risk_decomposition,
+                                plot_factor_heatmap,
+                                )
+
+# Ensure matplotlib is using a non-interactive backend for better org-integration
+%matplotlib inline
+#+end_src
+
+#+RESULTS:
+
+
+
+
+#+begin_src jupyter-python :file notebooks/figures/sample_risk_decomp_260326.png
+
+plot_sample_risk_decomposition(sample_risk)
+
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/risk_decomp_260326.png]]
+
+
+#+begin_src jupyter-python :file notebooks/figures/rolling_risk_decomp_aapl_260326.png
+
+plot_rolling_risk_decomposition(rolling_risk, "NVDA", normalize=False)
+
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/rolling_risk_decomp_aapl_260326.png]]
+
+#+begin_src jupyter-python :file notebooks/figures/rolling_risk_decomp_nvda_260326.png
+
+plot_rolling_risk_decomposition(rolling_risk, "NVDA", normalize=True)
+
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/rolling_risk_decomp_nvda_260326.png]]
+
+
+#+begin_src jupyter-python :file notebooks/figures/time-series_heatmap_20260401.png
+
+rr_aapl_ds = rolling_risk.sel(asset='AAPL')
+
+plot_factor_heatmap(rr_aapl_ds.factor_contributions)
+
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/time-series_heatmap_20260401.png]]

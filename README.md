@@ -1,84 +1,57 @@
-# Portfolio Optimization Under Regime Uncertainty
+# Portfolio Optimization Under Time-Path Uncertainty
 
-This repository demonstrates a deliberately narrow but important problem in quantitative portfolio construction:
+This repository studies a narrow portfolio-construction question:
 
-> How sensitive are optimized portfolios to estimation error, time-path dependence, and regime changes—relative to simple baselines?
+> How sensitive are optimized portfolios to estimation error and plausible alternative return paths?
 
-Rather than presenting a "solution" or a new alpha source, this project focuses on **exposing fragility** in common optimization workflows and making that fragility visible with minimal assumptions and minimal code complexity.
+The project is a research artifact, not an alpha model. The emphasis is on making optimization fragility visible with public data, explicit assumptions, and reproducible code.
 
-## What This Artifact Shows
+## Current Artifact
 
-This project produces a single, **self-contained artifact**: a comparison between an optimized portfolio and a naïve baseline under controlled perturbations.
+Artifact 01 bootstraps alternative time paths from the same asset and factor return history, then reruns a rolling minimum-variance optimizer across those paths. The main outputs compare bootstrap distributions against the realized historical path:
 
-Specifically, it shows:
+- rolling portfolio weight dispersion across bootstrap paths
+- realized-path weights overlaid against bootstrap 10th-90th percentile bands
+- cumulative portfolio return dispersion across bootstrap paths
+- realized cumulative return overlaid against the bootstrap distribution
 
-**Optimized portfolio sensitivity to the realized return path**
+The export-oriented notebook is `artifact_01_bootstrap_optimizer.org`. The working lab notebook is `bootstrap_optimizer_walkthrough.org`.
 
-- In-sample optimization (e.g., minimum variance or related risk metrics)
-- Repeated re-estimation using regular bootstrapping of returns
-- Dispersion of outcomes driven purely by sampling variability
+## Implementation
 
-**Response to exogenously injected volatility regimes**
+The codebase currently includes:
 
-- Synthetic volatility time-paths layered onto empirical returns
-- Regime-like shocks intended to mimic structural breaks or opacity in the market system
-- Optional noise amplification as a function of volatility (nonlinear error propagation)
+- data loading from Yahoo Finance through `src/data/interface.py`
+- cache naming and zarr cache helpers in `src/data/cache.py`
+- centralized xarray validators in `src/data/validation.py`
+- block bootstrap sampling in `src/data/sampling.py`
+- rolling and sample factor-model regressions in `src/model/regression.py`
+- rolling and sample risk decomposition in `src/model/risk.py`
+- mean and covariance estimators in `src/optimizer/estimators.py`
+- scipy-backed constrained optimization in `src/optimizer/optimizers.py`
+- optimizer diagnostic records in `src/optimizer/diagnostics.py`
+- plotting helpers in `src/viz/`
 
-**Comparison against a naïve equal-weight portfolio**
+Returns are stored as log returns. Asset arrays use `asset_returns(time, asset)`, factor arrays use `factor_returns(time, factor)`, and bootstrap datasets add a `path` dimension.
 
-- Identical return paths and perturbations
-- Used strictly as a robustness baseline
+## GitHub Pages
 
-The emphasis is on **distributional outcomes**, not point estimates:
-how often optimization helps, how often it hurts, and why.
+The Pages landing page lives at `docs/index.html`. If GitHub Pages is configured to deploy from the `docs/` folder on the main branch, GitHub will serve that file as the site home page instead of using this README.
 
-## What This Artifact Explicitly Does Not Show
+Selected artifact figures are copied into `docs/assets/artifact-01/` so the website has stable image paths independent of local notebook output directories.
 
-To keep the scope tight and interpretation clean, this project intentionally avoids:
+## Repository Layout
 
-**Hedging strategies**
-
-- No overlays, no defensive ETFs, no explicit downside protection
-- The goal is to surface the problem, not patch it
-
-**Alternative or proprietary data**
-
-- No claims of uncorrelated signals
-- No data advantage narratives
-
-**Alpha generation**
-
-- No return forecasting
-- Expected returns are treated as fragile inputs, not competitive edges
-
-This is a diagnostic exercise, not a product pitch.
-
-## Why This Exists
-
-Portfolio optimization is often presented as a convex, well-posed engineering problem.
-In practice, it is a **path-dependent inference problem embedded in a complex system.**
-
-Small changes in: the estimation window, the realized return path, or the volatility regime can lead to qualitatively different portfolios and outcomes—even when using standard, well-behaved risk models.
-
-This repository exists to make that instability concrete, inspectable, and reproducible.
-
-## Design Principles
-
-**Low friction**
-
-- Minimal dependencies
-- No data pipelines required to understand the results
-
-**Transparent assumptions**
-
-- Every perturbation is explicit and controlled
-
-**Single artifact focus**
-
-- One core figure / output
-- No sprawling notebooks or dashboards
+```text
+docs/                         Website landing page, docs, and published artifact assets
+src/data/                     Loading, cache, validation, and bootstrap sampling
+src/model/                    Factor regression and risk decomposition
+src/optimizer/                Estimators, optimizer, and diagnostics
+src/viz/                      Plotting helpers
+artifact_01_bootstrap_optimizer.org
+bootstrap_optimizer_walkthrough.org
+```
 
 ## Status
 
-Initial artifact under construction
-The first milestone is a reproducible comparison plot showing outcome dispersion across bootstrap samples and volatility regimes.
+The first artifact is now runnable end-to-end locally. The next cleanup step is to extract reusable org helper blocks into Python modules as they stabilize, then add a small static artifact page per research output under `docs/`.

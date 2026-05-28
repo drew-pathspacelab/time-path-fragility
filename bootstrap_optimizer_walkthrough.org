@@ -1,0 +1,646 @@
+#+TITLE: Bootstrap Optimizer Walkthrough
+#+AUTHOR: Drew
+#+OPTIONS: toc:2 num:nil html-style:nil
+#+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :results graphics file :dir (projectile-project-root) :mkdirp yes
+
+* Notebook Role
+
+This file is the exploratory lab notebook. Keep scratch checks, optimizer
+debugging, closed-form comparisons, and intermediate figures here.
+
+The cleaner export-oriented version is =artifact_01_bootstrap_optimizer.org=.
+That file should stay focused on the artifact narrative, diagnostics gate, and
+main figures.
+
+#+begin_src jupyter-python :exports code :results none
+"""dummy block"""
+#+end_src
+
+* Goal
+
+This notebook-style Org file does the following:
+
+- load the test universe and sector ETF factors with 10 years of daily history
+- generate 10 bootstrapped alternative time paths
+- run forward decomposition and risk attribution on each path
+- describes the methods: =compute_cov(...)= and =compute_mu(...)=
+- runs min-variance optimization across each path
+- visualize the dispersion of sample weights across paths
+
+For min-variance optimization, only the covariance estimate is needed. The
+current optimizer API also supports =compute_mu(...)=, but this walkthrough
+focuses on the covariance-driven case.
+
+* Imports And Configuration
+
+#+begin_src jupyter-python :exports code :results none
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
+from tabulate import tabulate
+
+from src.data.interface import get_returns
+from src.data.sampling import bootstrap_time_paths
+from src.data.universe import load_universe
+from src.model.regression import rolling_forward_decompose, sample_forward_decompose
+from src.model.risk import rolling_risk_decomposition, sample_risk_decomposition
+from src.optimizer import compute_cov, compute_mu, optimize
+from src.viz.timepath_plots import plot_bootstrap_time_paths
+from src.viz.optimizer_plots import plot_weights_through_time
+
+%matplotlib inline
+
+TEST_UNIVERSE = load_universe()
+
+ASSETS = TEST_UNIVERSE.assets
+FACTORS = TEST_UNIVERSE.market
+
+#END = pd.Timestamp.today().normalize().strftime("%Y-%m-%d")
+END = '2026-04-09' # testing dataset end
+START = (pd.Timestamp(END).normalize() - pd.DateOffset(years=10)).strftime("%Y-%m-%d")
+
+WINDOW = 252
+REBALANCE_EVERY = 21
+N_PATHS = 10
+BLOCK_SIZE = 21
+SEED = 42
+
+#+end_src
+
+* Load Historical Returns
+
+#+begin_src jupyter-python :exports code :results none
+asset_returns = get_returns(ASSETS, START, END, use_cache=True)
+factor_returns = get_returns(FACTORS, START, END, is_factor=True, use_cache=True)
+
+#+end_src
+
+
+* Bootstrap 10 Alternative Paths
+
+Block resampling is used because it preserves short-run time structure that would be destroyed by sampling individual days independently. By resampling contiguous chunks of time, the
+bootstrap keeps together local sequences of returns, which helps retain short-horizon autocorrelation, volatility clustering, and the contemporaneous joint behavior of assets and factors
+within each sampled block. Because the same sampled indices are applied jointly to both asset and factor panels, cross-sectional factor correlations and the factor-residual alignment from
+the original history are preserved inside each block.
+
+This is important for the current project because the goal is not to generate completely synthetic returns, but to create alternative time paths that remain structurally consistent with
+the realized market data. A simple iid bootstrap would scramble temporal dependence too aggressively and produce paths that are less faithful to the original factor-model setting.
+
+Block size controls the tradeoff between realism and perturbation strength. Shorter blocks produce more varied paths because they break the historical sequence more aggressively, but they
+preserve less local temporal structure. Longer blocks preserve more persistence and regime-like behavior, but the bootstrap paths become closer to the original realized history and
+therefore show less dispersion. In practice, shorter blocks tend to expose more optimizer fragility, while longer blocks tend to make the re-estimated portfolios look more stable. The selected =BLOCK_SIZE=21=
+preserves the short-horizon realism.
+
+#+begin_src jupyter-python :exports code :results none
+
+paths_ds = bootstrap_time_paths(
+    asset_da=asset_returns,
+    factor_da=factor_returns,
+    block_size=BLOCK_SIZE,
+    n_paths=N_PATHS,
+    seed=SEED,
+    use_cache=True,
+)
+
+#+end_src
+
+* Visualize the Alternative Time-paths
+
+#+begin_src jupyter-python :file notebooks/figures/aapl_boot_paths_260409.png
+plot_bootstrap_time_paths(paths_ds, "AAPL", n_paths=5, cumulative=True, original_da=asset_returns)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/aapl_boot_paths_260409.png]]
+
+#+begin_src jupyter-python :file notebooks/figures/aapl_boot_paths_rets_260409.png
+plot_bootstrap_time_paths(paths_ds, "AAPL",
+                          n_paths=2,
+                          cumulative=False,
+                          original_da=asset_returns,
+                          alpha=0.4)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/aapl_boot_paths_rets_260409.png]]
+
+* Example: Run Decompostion And Optimization Across Path:0
+
+Let's explicilty run the optimizer across */Path:0/* first by decomposing risk for the
+full sample which will allow us to compute the expected returns \( \mu \) and covariances \( \Sigma \).
+
+#+begin_src jupyter-python :exports code :results None
+asset_path_da = paths_ds.asset_returns.sel(path=0)
+factor_path_da = paths_ds.factor_returns.sel(path=0)
+
+path_0_sample_fwrd_ds = sample_forward_decompose(
+    asset_path_da,
+    factor_path_da,
+    include_intercept=True,
+)
+
+path_0_sample_risk_ds = sample_risk_decomposition(
+    path_0_sample_fwrd_ds,
+    factor_path_da,
+)
+
+#+end_src
+
+#+RESULTS:
+
+** Estimate Covariance and Expected Returns for Path:0
+
+The optimizer estimates expected returns mu and covariance cov from the selected path. These estimates can be noisy, so the current implementation applies shrinkage and a small
+numerical stabilization.
+
+For expected returns, the raw estimate is the per-asset mean return from the current path. Mean shrinkage blends that estimate with a simpler target:
+mu_shrunk = (1 - alpha) * raw_mu + alpha * target_mu
+If the target is zero, all assets are pulled toward zero expected return. If the target is grand_mean, all assets are pulled toward the same common average return across assets in the
+current estimate. This reduces sensitivity to noisy cross-sectional differences.
+
+For covariance, the raw estimate is either the historical covariance, EWMA covariance, or factor-model covariance. Covariance shrinkage blends that raw matrix with a structured target:
+cov_shrunk = (1 - alpha) * raw_cov + alpha * target_cov
+A diagonal target keeps each asset’s variance but removes correlations. An identity target goes further by replacing the covariance matrix with one that has the same average variance on
+the diagonal and zero correlations.
+
+After shrinkage, the covariance matrix is stabilized numerically by forcing symmetry and adding a very small ridge term to the diagonal. Shrinkage is a statistical regularization step,
+while stabilization is a numerical one. The goal is to make the optimizer less sensitive to estimation noise and less likely to fail on poorly conditioned covariance matrices.
+
+#+begin_src jupyter-python :exports both :results output raw
+
+cov_factor = compute_cov(
+    path_0_sample_fwrd_ds,
+    factor_returns=factor_path_da,
+    method="factor_model",
+    shrinkage=0.0,
+    shrinkage_target="diagonal",
+)
+
+mu_factor = compute_mu(
+    path_0_sample_fwrd_ds,
+    factor_returns=factor_path_da,
+    method="factor_model",
+    shrinkage=0.0,
+    shrinkage_target="zero",
+)
+
+cov_hist = compute_cov(
+    asset_path_da,
+    factor_returns=factor_path_da,
+    method="hist",
+    shrinkage=0.0,
+    shrinkage_target="diagonal",
+)
+
+# Print a table of mu computed from the factor model
+mu_factor = mu_factor.reset_index()
+print(tabulate(mu_factor, headers=['asset', 'log(r)'], tablefmt='orgtbl', showindex=False))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+| asset   |      log(r) |
+|---------+-------------|
+| AAPL    | 0.00159766  |
+| AMT     | 0.000375852 |
+| CAT     | 0.00105443  |
+| JNJ     | 0.000376508 |
+| JPM     | 0.00107845  |
+| KO      | 0.000675224 |
+| META    | 0.00123428  |
+| MSFT    | 0.00104196  |
+| NVDA    | 0.00263864  |
+| PG      | 0.000522776 |
+| XOM     | 0.000594862 |
+#+end_example
+
+
+** Calculate the Sample Min-Variance Optimized Weights for Path:0
+
+The covariance estimation method for this optimization is 'factor_model' which
+can be compared with the direct asset-to-asset covariance estimation ('hist').
+
+#+begin_src jupyter-python :exports both :results output raw
+factor_wts = optimize(
+    cov=cov_factor,
+    objective="min_variance",
+    long_only=True,
+    budget=1.0,
+)
+
+factor_wts = factor_wts.reset_index()
+print(tabulate(factor_wts, headers=factor_wts.columns, tablefmt='orgtbl', showindex=False))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+| asset   |     weights |
+|---------+-------------|
+| AAPL    | 0.0015974   |
+| AMT     | 0.0628397   |
+| CAT     | 0.00227498  |
+| JNJ     | 0.260994    |
+| JPM     | 0.0480395   |
+| KO      | 0.184652    |
+| META    | 0.0331563   |
+| MSFT    | 0.0802028   |
+| NVDA    | 3.77438e-18 |
+| PG      | 0.240582    |
+| XOM     | 0.0856616   |
+#+end_example
+
+#+begin_src jupyter-python :exports both :results output raw
+hist_wts = optimize(
+    cov=cov_hist,
+    objective="min_variance",
+    long_only=True,
+    budget=1.0,
+)
+
+hist_wts = hist_wts.reset_index()
+print(tabulate(hist_wts, headers=hist_wts.columns, tablefmt='orgtbl', showindex=False))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+| asset   |     weights |
+|---------+-------------|
+| AAPL    | 2.71051e-20 |
+| AMT     | 0.051285    |
+| CAT     | 0.0114161   |
+| JNJ     | 0.255669    |
+| JPM     | 0.0547053   |
+| KO      | 0.187705    |
+| META    | 0.0335511   |
+| MSFT    | 0.0575316   |
+| NVDA    | 0.00639553  |
+| PG      | 0.265896    |
+| XOM     | 0.0758445   |
+#+end_example
+
+
+** The optimizer ran and outputed some weights, but should we trust the outputs?
+
+The initial guess for the weights is an equal-weighted portfolio. Compare to
+closed-form solutions.
+
+#+begin_src jupyter-python :exports both :results output raw
+  avg_var_hist = np.trace(cov_hist.values) / cov_hist.shape[0]
+  avg_var_factor = np.trace(cov_factor.values) / cov_factor.shape[0]
+
+  hist_identity_like = np.eye(cov_hist.shape[0]) * avg_var_hist
+  factor_identity_like = np.eye(cov_factor.shape[0]) * avg_var_factor
+
+  print("Hist cov close to scaled identity:",
+        np.allclose(cov_hist.values, hist_identity_like, atol=1e-6))
+  print("Factor cov close to scaled identity:",
+        np.allclose(cov_factor.values, factor_identity_like, atol=1e-6))
+  print()
+
+  ones_hist = np.ones(len(cov_hist))
+  closed_form_hist = np.linalg.solve(cov_hist.values, ones_hist)
+  closed_form_hist = closed_form_hist / closed_form_hist.sum()
+  closed_form_hist = pd.Series(closed_form_hist, index=cov_hist.index, name="closed_form_hist")
+
+  ones_factor = np.ones(len(cov_factor))
+  closed_form_factor = np.linalg.solve(cov_factor.values, ones_factor)
+  closed_form_factor = closed_form_factor / closed_form_factor.sum()
+  closed_form_factor = pd.Series(closed_form_factor, index=cov_factor.index, name="closed_form_factor")
+
+  print("Closed-form unconstrained min-var weights from hist cov")
+  print(closed_form_hist.round(4))
+  print()
+
+  print("Closed-form unconstrained min-var weights from factor cov")
+  print(closed_form_factor.round(4))
+  print()
+
+  print("Hist covariance diagonal")
+  print(pd.Series(np.diag(cov_hist.values), index=cov_hist.index).round(6))
+  print()
+
+  print("Factor covariance diagonal")
+  print(pd.Series(np.diag(cov_factor.values), index=cov_factor.index).round(6))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+Hist cov close to scaled identity: False
+Factor cov close to scaled identity: False
+
+Closed-form unconstrained min-var weights from hist cov
+asset
+AAPL    0.0001
+AMT     0.0513
+CAT     0.0113
+JNJ     0.2557
+JPM     0.0549
+KO      0.1872
+META    0.0336
+MSFT    0.0571
+NVDA    0.0065
+PG      0.2664
+XOM     0.0759
+Name: closed_form_hist, dtype: float64
+
+Closed-form unconstrained min-var weights from factor cov
+asset
+AAPL    0.0051
+AMT     0.0625
+CAT     0.0036
+JNJ     0.2603
+JPM     0.0478
+KO      0.1823
+META    0.0343
+MSFT    0.0854
+NVDA   -0.0071
+PG      0.2403
+XOM     0.0855
+Name: closed_form_factor, dtype: float64
+
+Hist covariance diagonal
+asset
+AAPL    0.000303
+AMT     0.000228
+CAT     0.000332
+JNJ     0.000112
+JPM     0.000254
+KO      0.000103
+META    0.000595
+MSFT    0.000238
+NVDA    0.000872
+PG      0.000111
+XOM     0.000272
+dtype: float64
+
+Factor covariance diagonal
+asset
+AAPL    0.000303
+AMT     0.000228
+CAT     0.000332
+JNJ     0.000112
+JPM     0.000254
+KO      0.000103
+META    0.000595
+MSFT    0.000238
+NVDA    0.000872
+PG      0.000111
+XOM     0.000272
+dtype: float64
+#+end_example
+
+** Running the optimizer across rolling windows for Path:0
+
+We know the sample estimates and optimized weights. That analysis works in hindsight.
+Now lets compare the results of running a rolling optimization and compare it to the
+optimized performance of the entire sample. Does it even outperfom a naive equal
+weighted portfolio?
+
+#+begin_src jupyter-python :exports both :results output raw
+# NOTE: it is a little scratchy code right now
+rolling_forward_path0_ds = rolling_forward_decompose(asset_path_da, factor_path_da)
+window = rolling_forward_path0_ds.attrs.get('window')
+
+for t in rebalance_times:
+    current_time = pd.Timestamp(t)
+    start_time = current_time - pd.offsets.BDay(window - 1)
+
+    forward_slice = rolling_forward_path0_ds.sel(time=slice(start_time, current_time))
+    factor_slice = factor_path_da.sel(time=slice(start_time, current_time))
+
+    cov = compute_cov(
+        forward_slice,
+        factor_returns=factor_slice,
+        method="factor_model",
+        shrinkage=shrinkage,
+    )
+
+    w = optimize(
+        cov=cov,
+        objective="min_variance",
+        long_only=True,
+        budget=1.0,
+    )
+
+    w.name = current_time
+    weights_by_time.append(w)
+
+weights_df = pd.DataFrame(weights_by_time)
+weights_df.index.name = "time"
+
+#+end_src
+
+Let's visualize the weights through time.
+
+#+begin_src jupyter-python :file notebooks/figures/path0_minvar_weights_260501.png
+plot_weights_through_time(weights_df, ASSETS)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/path0_minvar_weights_260501.png]]
+
+* Helper Functions
+
+#+begin_src jupyter-python :exports code :results none
+def sample_min_var_weights(asset_path_da, factor_path_da, shrinkage=0.10):
+    forward_ds = sample_forward_decompose(
+        asset_path_da,
+        factor_path_da,
+        include_intercept=True,
+    )
+
+    risk_ds = sample_risk_decomposition(forward_ds, factor_path_da)
+    cov = compute_cov(
+        forward_ds,
+        factor_returns=factor_path_da,
+        method="factor_model",
+        shrinkage=shrinkage,
+    )
+    weights = optimize(
+        cov=cov,
+        objective="min_variance",
+        long_only=True,
+        budget=1.0,
+    )
+
+    return forward_ds, risk_ds, cov, weights
+
+
+def rolling_min_var_weights(
+    asset_path_da,
+    factor_path_da,
+    window=252,
+    rebalance_every=21,
+    shrinkage=0.10,
+):
+    forward_ds = rolling_forward_decompose(
+        asset_path_da,
+        factor_path_da,
+        window=window,
+        include_intercept=True,
+    )
+
+    risk_ds = rolling_risk_decomposition(forward_ds, factor_path_da)
+
+    rebalance_times = asset_path_da.time.values[window - 1 :: rebalance_every]
+    weights_by_time = []
+
+    for t in rebalance_times:
+        current_time = pd.Timestamp(t)
+        start_time = current_time - pd.offsets.BDay(window - 1)
+
+        forward_slice = forward_ds.sel(time=slice(start_time, current_time))
+        factor_slice = factor_path_da.sel(time=slice(start_time, current_time))
+
+        cov = compute_cov(
+            forward_slice,
+            factor_returns=factor_slice,
+            method="factor_model",
+            shrinkage=shrinkage,
+        )
+
+        w = optimize(
+            cov=cov,
+            objective="min_variance",
+            long_only=True,
+            budget=1.0,
+        )
+
+        w.name = current_time
+        weights_by_time.append(w)
+
+    weights_df = pd.DataFrame(weights_by_time)
+    weights_df.index.name = "time"
+
+    return forward_ds, risk_ds, weights_df
+#+end_src
+
+* Run Decomposition And Optimization Across Paths
+
+#+begin_src jupyter-python :exports code
+sample_weights = []
+rolling_weights = {}
+sample_models = {}
+rolling_models = {}
+sample_risks = {}
+rolling_risks = {}
+
+for path in paths_ds.path.values:
+    asset_path_da = paths_ds.asset_returns.sel(path=path)
+    factor_path_da = paths_ds.factor_returns.sel(path=path)
+
+    sample_forward_ds, sample_risk_ds, sample_cov, sample_w = sample_min_var_weights(
+        asset_path_da,
+        factor_path_da,
+    )
+    rolling_forward_ds, rolling_risk_ds, rolling_w_df = rolling_min_var_weights(
+        asset_path_da,
+        factor_path_da,
+        window=WINDOW,
+        rebalance_every=REBALANCE_EVERY,
+    )
+
+    sample_models[int(path)] = sample_forward_ds
+    rolling_models[int(path)] = rolling_forward_ds
+    sample_risks[int(path)] = sample_risk_ds
+    rolling_risks[int(path)] = rolling_risk_ds
+    sample_weights.append(sample_w.rename(int(path)))
+    rolling_weights[int(path)] = rolling_w_df
+
+sample_weights_df = pd.DataFrame(sample_weights)
+sample_weights_df.index.name = "path"
+
+#sample_weights_df
+#+end_src
+
+#+RESULTS:
+
+* Sample Weight Dispersion
+
+For only 10 paths and 11 assets, a boxplot with point overlays is usually the
+most legible first view. It shows both the range and the individual path-level
+weights without compressing everything into a summary statistic.
+
+#+begin_src jupyter-python :file notebooks/figures/bootstrap_sample_weight_dispersion.png :exports both
+fig, ax = plt.subplots(figsize=(12, 6))
+
+sample_weights_df.boxplot(ax=ax, grid=False)
+
+for i, asset in enumerate(sample_weights_df.columns, start=1):
+    y = sample_weights_df[asset].values
+    x = np.random.normal(i, 0.04, size=len(y))
+    ax.scatter(x, y, alpha=0.7, s=25, color="black")
+
+ax.set_title("Sample Min-Variance Weight Dispersion Across Bootstrap Paths")
+ax.set_ylabel("Portfolio Weight")
+ax.set_xlabel("Asset")
+ax.tick_params(axis="x", rotation=45)
+plt.tight_layout()
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/bootstrap_sample_weight_dispersion.png]]
+
+* Optional: Sample Weight Heatmap
+
+If you want to inspect path-by-path structure directly, a heatmap is often the
+next useful view after the boxplot.
+
+#+begin_src jupyter-python :file notebooks/figures/bootstrap_sample_weight_heatmap.png :exports both
+fig, ax = plt.subplots(figsize=(10, 6))
+im = ax.imshow(sample_weights_df.values, aspect="auto", interpolation="none")
+
+ax.set_title("Sample Min-Variance Weights by Bootstrap Path")
+ax.set_xlabel("Asset")
+ax.set_ylabel("Bootstrap Path")
+ax.set_xticks(range(len(sample_weights_df.columns)))
+ax.set_xticklabels(sample_weights_df.columns, rotation=45, ha="right")
+ax.set_yticks(range(len(sample_weights_df.index)))
+ax.set_yticklabels(sample_weights_df.index)
+plt.colorbar(im, ax=ax)
+plt.tight_layout()
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/bootstrap_sample_weight_heatmap.png]]
+
+* Optional: Rolling Weight Dispersion At Rebalance Dates
+
+For rolling portfolios, a practical first summary is the cross-path standard
+deviation of weights at each rebalance date.
+
+#+begin_src jupyter-python :file notebooks/figures/bootstrap_rolling_weight_std.png :exports both
+common_times = rolling_weights[0].index
+rolling_std = {}
+
+for asset in sample_weights_df.columns:
+    panel = pd.DataFrame(
+        {path: rolling_weights[path][asset].reindex(common_times) for path in rolling_weights}
+    )
+    rolling_std[asset] = panel.std(axis=1)
+
+rolling_std_df = pd.DataFrame(rolling_std)
+
+fig, ax = plt.subplots(figsize=(12, 6))
+rolling_std_df.plot(ax=ax, linewidth=1.5)
+ax.set_title("Rolling Weight Dispersion Across Paths")
+ax.set_ylabel("Cross-Path Std. Dev. of Weight")
+ax.set_xlabel("Rebalance Time")
+ax.legend(loc="upper right", ncol=2)
+plt.tight_layout()
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/bootstrap_rolling_weight_std.png]]
+
+* Notes
+
+- The sample weight boxplot is the simplest starting visualization for
+  dispersion because it keeps the path count visible.
+- The heatmap is useful once you want to compare whole-path allocation patterns.
+- For rolling portfolios, plotting the cross-path standard deviation at each
+  rebalance date is a compact way to see *when* the optimizer becomes unstable.
+- If you later want a more explicit fragility view, a good next chart would be
+  a path-by-time heatmap for one asset at a time, or a stacked small-multiple
+  chart of rolling median weight with 10th/90th percentile bands.

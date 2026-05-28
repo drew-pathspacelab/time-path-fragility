@@ -205,3 +205,19 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local data/cache artifacts
+/data
+
+# Org/Jupyter execution artifacts
+.ob-jupyter/
+notebooks/figures/
+notebooks/reports/
+
+# Scratch Python scripts
+explore_zarr.py
+map_tickers.py
+scratch.py
+
+# Project management file
+.projectile

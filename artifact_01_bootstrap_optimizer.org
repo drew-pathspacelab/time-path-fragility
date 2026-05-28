@@ -1,0 +1,421 @@
+#+TITLE: Artifact 01 - Bootstrap Path Fragility And Portfolio Weights
+#+AUTHOR: Drew
+#+OPTIONS: toc:2 num:nil html-style:nil
+#+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :dir (projectile-project-root) :mkdirp yes
+
+* Question
+
+This artifact asks whether a minimum-variance portfolio is stable when the
+same asset and factor history is resampled into alternative time paths.
+
+The workflow is intentionally narrow:
+
+- load the test asset universe and market ETF factors
+- create 10 block-bootstrapped alternative paths
+- estimate rolling factor decompositions on each path
+- estimate factor-model covariance matrices at monthly rebalance dates
+- optimize a long-only minimum-variance portfolio at each rebalance date
+- summarize optimizer diagnostics and plot cross-path weight dispersion
+- compare bootstrap weight and cumulative-return dispersion against the realized path
+
+The longer exploratory notebook remains in =bootstrap_optimizer_walkthrough.org=.
+This file is meant to be the cleaner export target for HTML/PDF/website work.
+
+* Setup
+
+#+begin_src jupyter-python :exports code :results none
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from src.data.interface import get_returns
+from src.data.sampling import bootstrap_time_paths
+from src.data.universe import load_universe
+from src.model.regression import rolling_forward_decompose
+from src.model.risk import rolling_risk_decomposition
+from src.optimizer import compute_cov, optimize
+from src.optimizer.diagnostics import DiagnosticsTracker
+from src.viz.timepath_plots import plot_bootstrap_time_paths
+
+%matplotlib inline
+
+UNIVERSE = load_universe()
+ASSETS = UNIVERSE.assets
+FACTORS = UNIVERSE.market
+
+# Fixed end date keeps this artifact reproducible while the loader/caches evolve.
+END = "2026-04-09"
+START = (pd.Timestamp(END) - pd.DateOffset(years=10)).strftime("%Y-%m-%d")
+
+N_PATHS = 10
+BLOCK_SIZE = 21
+SEED = 42
+
+WINDOW = 252
+REBALANCE_EVERY = 21
+COV_SHRINKAGE = 0.10
+#+end_src
+
+* Load Returns
+
+The historical data uses explicit dataset variable names downstream:
+=asset_returns= for assets and =factor_returns= for factors. The dimensions are
+=time= plus either =asset= or =factor=.
+
+#+begin_src jupyter-python :exports code :results none
+asset_returns = get_returns(ASSETS, START, END, use_cache=True)
+factor_returns = get_returns(FACTORS, START, END, is_factor=True, use_cache=True)
+#+end_src
+
+* Bootstrap Paths
+
+Block resampling samples contiguous chunks of time and stitches those chunks
+together into alternative paths. This keeps local return sequences intact, so
+short-horizon autocorrelation, volatility clustering, and contemporaneous
+asset-factor relationships are less distorted than they would be under an iid
+daily bootstrap.
+
+Shorter blocks create more path dispersion but destroy more temporal structure.
+Longer blocks preserve more regime-like behavior but produce paths closer to
+the realized history. A 21-trading-day block is a practical first monthly
+choice for this artifact.
+
+#+begin_src jupyter-python :exports code :results none
+paths_ds = bootstrap_time_paths(
+    asset_da=asset_returns,
+    factor_da=factor_returns,
+    block_size=BLOCK_SIZE,
+    n_paths=N_PATHS,
+    seed=SEED,
+    use_cache=True,
+)
+#+end_src
+
+#+begin_src jupyter-python :file notebooks/figures/artifact01_bootstrap_paths_aapl.png :exports both :results graphics file
+plot_bootstrap_time_paths(
+    paths_ds,
+    "AAPL",
+    n_paths=5,
+    cumulative=True,
+    original_da=asset_returns,
+)
+#+end_src
+
+* Rolling Decomposition And Optimization
+
+For each bootstrap path, this section estimates a rolling factor decomposition
+and computes minimum-variance weights at monthly rebalance dates. Optimizer
+diagnostics are tracked separately so failures or instability can be summarized
+without interrupting the full path run.
+
+#+begin_src jupyter-python :exports code :results none
+def rolling_min_var_weights_for_path(
+    asset_path_da,
+    factor_path_da,
+    path_id,
+    tracker,
+    window=WINDOW,
+    rebalance_every=REBALANCE_EVERY,
+    cov_shrinkage=COV_SHRINKAGE,
+):
+    forward_ds = rolling_forward_decompose(
+        asset_path_da,
+        factor_path_da,
+        window=window,
+        include_intercept=True,
+    )
+    risk_ds = rolling_risk_decomposition(forward_ds, factor_path_da)
+
+    rebalance_times = asset_path_da.time.values[window - 1 :: rebalance_every]
+    weights_by_time = []
+
+    for t in rebalance_times:
+        current_time = pd.Timestamp(t)
+        start_time = current_time - pd.offsets.BDay(window - 1)
+
+        forward_slice = forward_ds.sel(time=slice(start_time, current_time))
+        factor_slice = factor_path_da.sel(time=slice(start_time, current_time))
+
+        cov = compute_cov(
+            forward_slice,
+            factor_returns=factor_slice,
+            method="factor_model",
+            shrinkage=cov_shrinkage,
+            shrinkage_target="diagonal",
+        )
+
+        weights, record = optimize(
+            cov=cov,
+            objective="min_variance",
+            long_only=True,
+            budget=1.0,
+            return_diagnostics=True,
+            diagnostic_context={
+                "path_id": int(path_id),
+                "time": current_time,
+                "window_start": start_time,
+            },
+            raise_on_failure=False,
+        )
+
+        tracker.log(record)
+        weights.name = (int(path_id), current_time)
+        weights_by_time.append(weights)
+
+    weights_df = pd.DataFrame(weights_by_time)
+    weights_df.index = pd.MultiIndex.from_tuples(
+        weights_df.index,
+        names=["path_id", "time"],
+    )
+
+    return forward_ds, risk_ds, weights_df
+#+end_src
+
+#+begin_src jupyter-python :exports code :results none
+diagnostics = DiagnosticsTracker()
+realized_diagnostics = DiagnosticsTracker()
+rolling_models = {}
+rolling_risks = {}
+rolling_weight_frames = []
+
+for path_id in paths_ds.path.values:
+    asset_path_da = paths_ds.asset_returns.sel(path=path_id)
+    factor_path_da = paths_ds.factor_returns.sel(path=path_id)
+
+    forward_ds, risk_ds, weights_df = rolling_min_var_weights_for_path(
+        asset_path_da,
+        factor_path_da,
+        path_id=path_id,
+        tracker=diagnostics,
+    )
+
+    rolling_models[int(path_id)] = forward_ds
+    rolling_risks[int(path_id)] = risk_ds
+    rolling_weight_frames.append(weights_df)
+
+rolling_weights_df = pd.concat(rolling_weight_frames).sort_index()
+diagnostics_df = diagnostics.to_dataframe()
+
+realized_forward_ds, realized_risk_ds, realized_weights_panel = rolling_min_var_weights_for_path(
+    asset_returns,
+    factor_returns,
+    path_id=-1,
+    tracker=realized_diagnostics,
+)
+realized_weights_df = realized_weights_panel.xs(-1, level="path_id")
+realized_diagnostics_df = realized_diagnostics.to_dataframe()
+#+end_src
+
+* Diagnostics Gate
+
+This table is a quick check before interpreting the figures. A failed optimizer
+run is kept as =NaN= weights and logged in the diagnostics tables. The
+bootstrap paths and realized path are summarized separately so the realized
+reference run does not mask bootstrap-path instability.
+
+#+begin_src jupyter-python :exports both :results output
+def summarize_diagnostics(df):
+    return pd.Series(
+        {
+            "n_records": len(df),
+            "success_rate": df["success"].mean(),
+            "constraint_violations": df["constraint_violation"].sum(),
+            "median_cond_number": df["cond_number"].median(),
+            "max_cond_number": df["cond_number"].max(),
+            "median_obj_improvement": df["obj_improvement"].median(),
+            "max_multi_init_obj_diff": df["obj_diff_init"].max(),
+        }
+    )
+
+diagnostic_summary = pd.DataFrame(
+    {
+        "bootstrap_paths": summarize_diagnostics(diagnostics_df),
+        "realized_path": summarize_diagnostics(realized_diagnostics_df),
+    }
+).T
+
+print(diagnostic_summary.to_string())
+#+end_src
+
+* Main Figure: Rolling Weight Dispersion
+
+The figure below plots the median rolling weight across bootstrap paths and a
+10th-90th percentile band. The dashed black line is the realized-path rolling
+weight. The selected assets are the six largest realized-path average weights,
+which makes it easier to see whether the realized allocation emphasis sits
+inside or outside the bootstrap distribution.
+
+#+begin_src jupyter-python :exports code :results none
+rolling_std_by_time = rolling_weights_df.groupby(level="time").std()
+selected_assets = (
+    realized_weights_df.mean()
+    .sort_values(ascending=False)
+    .head(6)
+    .index
+    .tolist()
+)
+#+end_src
+
+#+begin_src jupyter-python :file notebooks/figures/artifact01_rolling_weight_bands.png :exports both :results graphics file
+fig, axes = plt.subplots(
+    len(selected_assets),
+    1,
+    figsize=(12, 2.0 * len(selected_assets)),
+    sharex=True,
+)
+
+if len(selected_assets) == 1:
+    axes = [axes]
+
+for ax, asset in zip(axes, selected_assets):
+    panel = rolling_weights_df[asset].unstack("path_id")
+    median = panel.median(axis=1)
+    p10 = panel.quantile(0.10, axis=1)
+    p90 = panel.quantile(0.90, axis=1)
+    realized = realized_weights_df[asset].reindex(median.index)
+
+    ax.plot(
+        median.index,
+        median.values,
+        color="steelblue",
+        linewidth=1.8,
+        label="Bootstrap median",
+    )
+    ax.fill_between(
+        median.index,
+        p10.values,
+        p90.values,
+        color="steelblue",
+        alpha=0.25,
+        label="Bootstrap 10th-90th percentile",
+    )
+    ax.plot(
+        realized.index,
+        realized.values,
+        color="black",
+        linestyle="--",
+        linewidth=1.7,
+        label="Realized path",
+    )
+    ax.axhline(0.0, color="0.8", linewidth=0.8)
+    ax.set_ylabel(asset)
+
+axes[0].legend(loc="upper right")
+axes[0].set_title("Rolling Min-Variance Weight Dispersion Across Bootstrap Paths")
+axes[-1].set_xlabel("Rebalance Date")
+plt.tight_layout()
+#+end_src
+
+* Secondary Figure: Cross-Path Weight Standard Deviation
+
+The percentile-band plot shows allocation levels. The standard-deviation plot
+shows when the optimizer is most path-sensitive.
+
+#+begin_src jupyter-python :file notebooks/figures/artifact01_rolling_weight_std.png :exports both :results graphics file
+fig, ax = plt.subplots(figsize=(12, 6))
+rolling_std_by_time[selected_assets].plot(ax=ax, linewidth=1.6)
+ax.set_title("Cross-Path Standard Deviation Of Rolling Weights")
+ax.set_ylabel("Std. Dev. of Weight")
+ax.set_xlabel("Rebalance Date")
+ax.legend(title="Asset", loc="upper left", bbox_to_anchor=(1.02, 1.0))
+plt.tight_layout()
+#+end_src
+
+* Portfolio Cumulative Return Dispersion
+
+This figure applies the rolling optimized weights to each path's subsequent
+returns. Asset returns are stored as log returns, so the helper converts them
+to simple returns before aggregating across assets and compounding the
+portfolio return. Weights are shifted forward one trading day so a rebalance
+estimated with data through date \(t\) is applied starting after date \(t\).
+
+#+begin_src jupyter-python :exports code :results none
+def cumulative_portfolio_return_from_weights(returns_da, weights_df):
+    returns_df = returns_da.to_pandas()
+    weights_df = weights_df.reindex(columns=returns_df.columns)
+
+    daily_weights = weights_df.reindex(returns_df.index).ffill().shift(1)
+    valid = daily_weights.notna().all(axis=1)
+
+    simple_returns = np.expm1(returns_df.loc[valid])
+    daily_weights = daily_weights.loc[valid]
+
+    portfolio_simple_returns = (simple_returns * daily_weights).sum(axis=1)
+    cumulative = (1.0 + portfolio_simple_returns).cumprod() - 1.0
+    return cumulative * 100.0
+
+
+bootstrap_cumulative_returns = {}
+
+for path_id in paths_ds.path.values:
+    path_returns = paths_ds.asset_returns.sel(path=path_id)
+    path_weights = rolling_weights_df.xs(int(path_id), level="path_id")
+    bootstrap_cumulative_returns[int(path_id)] = cumulative_portfolio_return_from_weights(
+        path_returns,
+        path_weights,
+    )
+
+bootstrap_cumulative_returns_df = pd.DataFrame(bootstrap_cumulative_returns)
+realized_cumulative_return = cumulative_portfolio_return_from_weights(
+    asset_returns,
+    realized_weights_df,
+)
+
+common_return_index = bootstrap_cumulative_returns_df.index.intersection(
+    realized_cumulative_return.index
+)
+bootstrap_cumulative_returns_df = bootstrap_cumulative_returns_df.reindex(common_return_index)
+realized_cumulative_return = realized_cumulative_return.reindex(common_return_index)
+#+end_src
+
+#+begin_src jupyter-python :file notebooks/figures/artifact01_portfolio_cumulative_return_dispersion.png :exports both :results graphics file
+median_return = bootstrap_cumulative_returns_df.median(axis=1)
+p10_return = bootstrap_cumulative_returns_df.quantile(0.10, axis=1)
+p90_return = bootstrap_cumulative_returns_df.quantile(0.90, axis=1)
+
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.plot(
+    median_return.index,
+    median_return.values,
+    color="steelblue",
+    linewidth=2.0,
+    label="Bootstrap median",
+)
+ax.fill_between(
+    median_return.index,
+    p10_return.values,
+    p90_return.values,
+    color="steelblue",
+    alpha=0.25,
+    label="Bootstrap 10th-90th percentile",
+)
+ax.plot(
+    realized_cumulative_return.index,
+    realized_cumulative_return.values,
+    color="black",
+    linestyle="--",
+    linewidth=2.0,
+    label="Realized path",
+)
+ax.axhline(0.0, color="0.8", linewidth=0.8)
+ax.set_title("Rolling Min-Variance Portfolio Cumulative Return Dispersion")
+ax.set_ylabel("Cumulative Return (%)")
+ax.set_xlabel("Date")
+ax.legend(loc="best")
+plt.tight_layout()
+#+end_src
+
+* Interpretation Notes
+
+Read this artifact in the following order:
+
+- first confirm the diagnostics gate has a high success rate and no repeated
+  constraint violations
+- then inspect whether the realized weight lines sit inside or outside the
+  bootstrap percentile bands
+- finally compare the timing of wide percentile bands with spikes in
+  cross-path standard deviation and cumulative-return dispersion
+
+If the rolling bands are narrow, the optimizer is stable under this bootstrap
+design. If bands widen at specific dates or for specific assets, those are good
+candidate periods for deeper decomposition and diagnostics in the lab notebook.

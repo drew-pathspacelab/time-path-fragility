@@ -1,0 +1,387 @@
+#+TITLE: Risk Pipeline Tutorial
+#+AUTHOR: Drew
+#+OPTIONS: toc:2 num:nil html-style:nil
+#+EXPORT_FILE_NAME: notebooks/reports/risk_pipeline_tutorial
+#+OPTIONS: html-inline-images:t
+#+BIND: org-html-inline-images t
+#+BIND: org-export-allow-bind keywords
+#+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :results graphics file :dir (projectile-project-root) :mkdirp yes
+
+#+BEGIN_COMMENT
+This file is written to work as:
+
+1. A literate tutorial notebook inside Emacs Org mode.
+2. An HTML export for lightweight sharing.
+3. A base document that can be copied into a reveal.js slide deck later.
+
+Useful export commands in Emacs:
+- C-c C-e h h   -> HTML
+- C-c C-e l p   -> PDF via LaTeX
+- C-c C-e R R   -> reveal.js slides, if ox-reveal is installed
+
+Suggested publish target:
+- Export HTML into notebooks/reports/
+- Serve that directory directly from a static site generator or simple web host
+- Keep images under notebooks/figures/ so relative links survive export
+#+END_COMMENT
+
+* Goal
+
+This tutorial runs the current research pipeline end to end:
+
+- load the universe
+- fetch asset and factor returns
+- estimate forward factor models
+- compute rolling and full-sample risk decompositions
+- render the same decomposition plots used elsewhere in the repo
+
+The aim is not to hide the code behind a notebook UI. It is to keep the code
+visible, executable, and exportable into formats that can later feed a website
+or slide deck.
+
+* Imports And Configuration
+
+The first block mirrors the imports in =run_pipeline.py= and adds the plotting
+helpers used in =risk_decomposition.org=.
+
+#+begin_src jupyter-python :exports code :results none
+import matplotlib.pyplot as plt
+import xarray as xr
+
+from src.data.interface import get_returns
+from src.data.universe import load_universe
+from src.model.regression import rolling_forward_decompose, sample_forward_decompose
+from src.model.risk import rolling_risk_decomposition, sample_risk_decomposition
+from src.viz.risk_plots import (
+    plot_factor_heatmap,
+    plot_rolling_risk_decomposition,
+    plot_sample_risk_decomposition,
+)
+
+%matplotlib inline
+
+TEST_UNIVERSE = load_universe()
+
+ASSETS = TEST_UNIVERSE.assets
+FACTORS = TEST_UNIVERSE.market
+
+START = "2020-01-01"
+END = "2026-01-01"
+WINDOW = 252
+#+end_src
+
+* Step 1: Load Returns
+
+The pipeline works with two aligned return panels:
+
+- asset returns for the tradable universe
+- factor returns for the exogenous factor proxies
+
+#+begin_src jupyter-python :exports both
+asset_returns = get_returns(ASSETS, START, END)
+factor_returns = get_returns(FACTORS, START, END, is_factor=True)
+
+print(asset_returns)
+print()
+print(factor_returns)
+#+end_src
+
+#+RESULTS:
+[[file:#+begin_example
+Loading cached data: AAPL_AMT_CAT_JNJ_JPM_KO_META_MSFT_NVDA_PG_XOM_2020-01-01_2026-01-01_1d
+Fetching data from backend: XLB_XLE_XLF_XLI_XLK_XLP_XLRE_XLU_XLV_XLY_2020-01-01_2026-01-01_1d
+<xarray.DataArray 'returns' (date: 1507, asset: 11)> Size: 133kB
+dask.array<getitem, shape=(1507, 11), dtype=float64, chunksize=(1507, 11), chunktype=numpy.ndarray>
+Coordinates:
+  ,* date     (date) datetime64[ns] 12kB 2020-01-03 2020-01-06 ... 2025-12-31
+  ,* asset    (asset) object 88B 'AAPL' 'AMT' 'CAT' 'JNJ' ... 'NVDA' 'PG' 'XOM'
+
+<xarray.DataArray 'returns' (date: 1507, factor: 10)> Size: 121kB
+array([[-0.01627668, -0.00297544, -0.01067468, ...,  0.00203534,
+        -0.00875282, -0.00854629],
+       [-0.00436336,  0.00775107, -0.00065061, ...,  0.00093778,
+         0.00620377,  0.0027775 ],
+       [-0.00117769, -0.00263205, -0.00652938, ..., -0.00140715,
+        -0.00196523, -0.00158628],
+       ...,
+       [-0.00805667,  0.00945733, -0.00540827, ...,  0.00186829,
+        -0.00153923, -0.00988075],
+       [-0.00021866,  0.00759107, -0.00253397, ...,  0.00233042,
+        -0.00083472, -0.00406282],
+       [-0.00834439, -0.00557605, -0.00745794, ..., -0.00630471,
+        -0.0056686 , -0.00792432]], shape=(1507, 10))
+Coordinates:
+  ,* date     (date) datetime64[ns] 12kB 2020-01-03 2020-01-06 ... 2025-12-31
+  ,* factor   (factor) object 80B 'XLB' 'XLE' 'XLF' 'XLI' ... 'XLU' 'XLV' 'XLY'
+#+end_example
+]]
+
+* Step 2: Estimate The Forward Models
+
+We run two versions of the same factor model:
+
+- a rolling model, which produces time-varying betas and residuals
+- a full-sample model, which produces one set of betas over the entire window
+
+#+begin_src jupyter-python :exports both
+rolling_model_ds = rolling_forward_decompose(
+    asset_da=asset_returns,
+    factor_da=factor_returns,
+    window=WINDOW,
+    include_intercept=True,
+)
+
+sample_model_ds = sample_forward_decompose(
+    asset_returns,
+    factor_returns,
+    include_intercept=True,
+)
+
+print(rolling_model_ds)
+print()
+print(sample_model_ds)
+#+end_src
+
+#+RESULTS:
+[[file:#+begin_example
+<xarray.Dataset> Size: 2MB
+Dimensions:    (date: 1507, asset: 11, factor: 10)
+Coordinates:
+  ,* date       (date) datetime64[ns] 12kB 2020-01-03 2020-01-06 ... 2025-12-31
+  ,* asset      (asset) object 88B 'AAPL' 'AMT' 'CAT' 'JNJ' ... 'NVDA' 'PG' 'XOM'
+  ,* factor     (factor) object 80B 'XLB' 'XLE' 'XLF' 'XLI' ... 'XLU' 'XLV' 'XLY'
+Data variables:
+    betas      (date, asset, factor) float64 1MB nan nan ... -0.03243 0.008297
+    alphas     (date, asset) float64 133kB nan nan nan ... -0.000528 0.0004896
+    fitted     (date, asset) float64 133kB nan nan nan ... -0.005825 -0.00283
+    residuals  (date, asset) float64 133kB nan nan nan ... 0.000675 -0.002556
+Attributes:
+    window:             252
+    regression_type:    rolling_ols
+    include_intercept:  True
+    factor_model:       sector_etf
+
+<xarray.Dataset> Size: 278kB
+Dimensions:    (asset: 11, factor: 10, date: 1507)
+Coordinates:
+  ,* asset      (asset) object 88B 'AAPL' 'AMT' 'CAT' 'JNJ' ... 'NVDA' 'PG' 'XOM'
+  ,* factor     (factor) object 80B 'XLB' 'XLE' 'XLF' 'XLI' ... 'XLU' 'XLV' 'XLY'
+  ,* date       (date) datetime64[ns] 12kB 2020-01-03 2020-01-06 ... 2025-12-31
+Data variables:
+    betas      (asset, factor) float64 880B -0.04306 0.03431 ... -0.004433
+    fitted     (date, asset) float64 133kB -0.009948 0.007962 ... -0.004021
+    residuals  (date, asset) float64 133kB 0.0001786 -0.007481 ... -0.001366
+    alphas     (asset) float64 88B 0.0001756 -0.0001274 ... -4.973e-05 0.0001992
+Attributes:
+    regression_type:    full_sample_ols
+    include_intercept:  True
+    factor_model:       sector_etf
+#+end_example
+]]
+
+* Step 3: Compute Risk Decomposition
+
+Once the forward models are estimated, the next step is to decompose risk into:
+
+- systematic variance explained by the factor model
+- idiosyncratic variance left in the residuals
+
+#+begin_src jupyter-python :exports both
+rolling_risk = rolling_risk_decomposition(rolling_model_ds, factor_returns)
+sample_risk = sample_risk_decomposition(sample_model_ds, factor_returns)
+
+print(rolling_risk)
+print()
+print(sample_risk)
+#+end_src
+
+#+RESULTS:
+[[file:#+begin_example
+<xarray.Dataset> Size: 2MB
+Dimensions:               (date: 1507, asset: 11, factor: 10)
+Coordinates:
+  ,* date                  (date) datetime64[ns] 12kB 2020-01-03 ... 2025-12-31
+  ,* asset                 (asset) object 88B 'AAPL' 'AMT' 'CAT' ... 'PG' 'XOM'
+  ,* factor                (factor) object 80B 'XLB' 'XLE' 'XLF' ... 'XLV' 'XLY'
+Data variables:
+    sys_var               (date, asset) float64 133kB nan nan ... 0.0001888
+    idio_var              (date, asset) float64 133kB nan nan ... 3.087e-05
+    total_var             (date, asset) float64 133kB nan nan ... 0.0002197
+    sys_share             (date, asset) float64 133kB nan nan ... 0.6387 0.8595
+    factor_contributions  (date, asset, factor) float64 1MB nan nan ... 6.78e-07
+Attributes:
+    window:      252
+    model_type:  rolling_variance_decomposition
+
+<xarray.Dataset> Size: 2kB
+Dimensions:               (asset: 11, factor: 10, factor_p: 10)
+Coordinates:
+  ,* asset                 (asset) object 88B 'AAPL' 'AMT' 'CAT' ... 'PG' 'XOM'
+  ,* factor                (factor) object 80B 'XLB' 'XLE' 'XLF' ... 'XLV' 'XLY'
+    factor_p              (factor) object 80B 'XLB' 'XLE' 'XLF' ... 'XLV' 'XLY'
+Data variables:
+    sys_var               (asset) float64 88B 0.0002828 0.0002475 ... 0.000377
+    idio_var              (asset) float64 88B 0.000117 0.0001017 ... 5.074e-05
+    total_var             (asset) float64 88B 0.0003997 0.0003492 ... 0.0004278
+    sys_share             (asset) float64 88B 0.7074 0.7089 ... 0.7514 0.8814
+    factor_contributions  (asset, factor) float64 880B -7.238e-06 ... -5.691e-07
+    Sigma_f               (factor, factor_p) float64 800B 0.0002171 ... 0.000...
+Attributes:
+    window:        None
+    sample_start:  2020-01-03T00:00:00.000000000
+    sample_end:    2025-12-31T00:00:00.000000000
+    sample_size:   1507
+    model_type:    sample_variance_decomposition
+    factor_model:  sector_etf
+#+end_example
+]]
+
+* Step 4: Inspect The Full-Sample Decomposition
+
+This view answers a simple question: across the whole sample, how much of each
+asset's variance is systematic versus idiosyncratic?
+
+#+begin_src jupyter-python :file notebooks/figures/sample_risk_decomp_tutorial.png :exports both
+plot_sample_risk_decomposition(sample_risk)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/sample_risk_decomp_tutorial.png]]
+
+* Step 5: Inspect Rolling Risk Through Time
+
+The rolling plot is usually more informative because it shows whether the
+balance between systematic and idiosyncratic risk changes materially over time.
+
+Below, the first plot uses raw variance levels and the second uses normalized
+risk share.
+
+#+begin_src jupyter-python :file notebooks/figures/rolling_risk_decomp_aapl_tutorial.png :exports both
+plot_rolling_risk_decomposition(rolling_risk, "AAPL", normalize=False)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/rolling_risk_decomp_aapl_tutorial.png]]
+
+#+begin_src jupyter-python :file notebooks/figures/rolling_risk_decomp_nvda_tutorial.png :exports both
+plot_rolling_risk_decomposition(rolling_risk, "NVDA", normalize=True)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/rolling_risk_decomp_nvda_tutorial.png]]
+
+* Step 6: Inspect Factor Contributions
+
+The factor-level heatmap is a compact way to see which factors are dominating a
+single asset's systematic risk contribution through time.
+
+#+begin_src jupyter-python :file notebooks/figures/factor_heatmap_aapl_tutorial.png :exports both
+rr_aapl_ds = rolling_risk.sel(asset="AAPL")
+plot_factor_heatmap(rr_aapl_ds.factor_contributions)
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/factor_heatmap_aapl_tutorial.png]]
+
+* Optional: Wrap The Pipeline In One Block
+
+If you want one cell that behaves like =run_pipeline.py=, this block keeps the
+whole workflow together while still leaving intermediate objects available in
+the notebook session.
+
+#+begin_src jupyter-python :exports code :results output
+def main():
+    asset_returns = get_returns(ASSETS, START, END)
+    factor_returns = get_returns(FACTORS, START, END, is_factor=True)
+
+    rolling_model_ds = rolling_forward_decompose(
+        asset_da=asset_returns,
+        factor_da=factor_returns,
+        window=WINDOW,
+        include_intercept=True,
+    )
+
+    sample_model_ds = sample_forward_decompose(
+        asset_returns,
+        factor_returns,
+        include_intercept=True,
+    )
+
+    rolling_risk = rolling_risk_decomposition(rolling_model_ds, factor_returns)
+    sample_risk = sample_risk_decomposition(sample_model_ds, factor_returns)
+
+    print("Pipeline complete.")
+    print(rolling_risk)
+    print(sample_risk)
+
+    return {
+        "asset_returns": asset_returns,
+        "factor_returns": factor_returns,
+        "rolling_model_ds": rolling_model_ds,
+        "sample_model_ds": sample_model_ds,
+        "rolling_risk": rolling_risk,
+        "sample_risk": sample_risk,
+    }
+#+end_src
+
+* Export Targets
+
+This Org file is useful because the same source can generate several outputs.
+
+** HTML Report
+
+Plain HTML is the most direct export target for a website. It preserves text,
+code blocks, and image links with very little overhead.
+
+Recommended flow:
+
+- export to =notebooks/reports/risk_pipeline_tutorial.html=
+- keep figures under =notebooks/figures/=
+- publish both directories together so relative image paths remain valid
+
+** PDF
+
+PDF is useful for static review copies or archival snapshots. The tradeoff is
+that it is less natural for interactive browsing and linking.
+
+** reveal.js Slides
+
+If you want a presentation layer, Org can also export to reveal.js slides.
+That is likely the cleanest path if the eventual website needs both:
+
+- a tutorial article
+- a slide-style walkthrough
+
+The current repo already has a reveal.js example in =test_revealjs.org=. A
+practical structure is:
+
+- keep this file as the narrative report
+- create a thinner slide-oriented sibling file later for talks or demos
+
+** Website Integration
+
+The simplest website path is to treat Org as source and exported HTML as the
+published artifact.
+
+Two workable options:
+
+1. Export Org to HTML locally and deploy the generated files as static assets.
+2. Use a static-site tool that accepts generated HTML pages under a content or
+   public directory.
+
+For this repo, the low-friction option is to export into =notebooks/reports/=
+and have a website build step copy:
+
+- =notebooks/reports/*.html=
+- =notebooks/figures/*.png=
+
+That keeps the research workflow and the publishing workflow loosely coupled.
+
+* Next Step
+
+Once bootstrap paths land in the model layer, this same tutorial can grow by
+adding a new section after the decomposition step:
+
+- generate alternative time paths
+- recompute risk on each path
+- compare stability across bootstrapped histories
