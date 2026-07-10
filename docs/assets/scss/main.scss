@@ -1,0 +1,53 @@
+---
+# Front matter blocks tell Jekyll to process this file
+---
+
+@import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
+@import "minimal-mistakes"; // main partials
+
+/* ==========================================================================
+   Your Custom Enhancements
+   ========================================================================== */
+
+// 1. Change Feature Row Titles Color
+.feature__item-title {
+  color: #2c3e50; /* Replace with your preferred color hex (e.g., your theme's primary accent) */
+}
+
+// 2. Make Excerpts Smaller and Italicized
+.feature__item-teaser {
+  font-size: 0.85em;      /* Shrinks the font slightly smaller than base body text */
+  font-style: italic;     /* Forces italic styling */
+  color: #555555;         /* Optional: Mutes the color slightly for better typographic hierarchy */
+}
+
+// 3. Adjust Layout/Section Margins for Better Readability
+.feature__wrapper {
+  margin-top: 3em;        /* Increases spacing above the feature row section */
+  margin-bottom: 3em;     /* Increases spacing below the feature row section */
+  max-width: 90%;         /* Restricts width slightly if you want tighter, readable columns */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+// Optional: Adjust column gap padding inside the grid elements themselves
+.feature__item {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+
+// Splash subtitle under the main hero title.
+.page__hero .page__lead,
+.page__hero--overlay .page__lead {
+  font-size: 0.8em;
+  font-style: italic;
+  font-weight: 400;
+}
+
+
+// Reusable inline styling for the pathspace term in feature titles.
+.pathspace-term {
+  color: #123a63;
+  font-style: italic;
+}

@@ -1,0 +1,16 @@
+# /_data/authors.yml
+
+drew_profile:
+  name        : "Drew Tilley"
+  bio         : "Research notes on modeling complexity and decision systems under uncertainty."
+  avatar      : "/assets/images/drewtilley_profile_2024.jpg"
+  links:
+    - label: "Email"
+      icon: "fas fa-fw fa-square-envelope"
+      url: "mailto:drew@pathspacelab.org"
+    - label: "GitHub"
+      icon: "fab fa-fw fa-github"
+      url: "https://github.com/drew-pathspacelab"
+    - label: "LinkedIn"
+      icon: "fab fa-fw fa-linkedin"
+      url: "https://linkedin.com/in/drewtilley"

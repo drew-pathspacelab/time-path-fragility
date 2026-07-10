@@ -1,0 +1,12 @@
+main:
+  - title: "Home"
+    url: /
+  - title: "Research"
+    url: /artifact_01_spec.html
+  - title: "Projects"
+    url: /data_schema.html
+  - title: "Writing"
+    url: /writing/beyond-the-realized-path/
+  - title: "About"
+    url: /perturbations.html
+  - title: "Contact"

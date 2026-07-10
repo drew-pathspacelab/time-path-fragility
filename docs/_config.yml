@@ -1,0 +1,21 @@
+title: Pathspace Lab
+remote_theme: "mmistakes/minimal-mistakes"
+minimal_mistakes_skin: "pathspace"
+markdown: kramdown
+
+plugins:
+  - jekyll-include-cache
+  - jekyll-remote-theme
+
+masthead_title: Pathspace Lab
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: single
+      author_profile: true
+      author: drew_profile
+
+exclude:
+  - README.md

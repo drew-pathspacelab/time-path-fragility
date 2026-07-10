@@ -1,12 +1,12 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
-
 import xarray as xr
 
 
-CACHE_DIR = Path("data/cache")
+CACHE_DIR = Path(os.getenv('CACHE_DIR'))
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 CACHE_SCHEMA_VERSION = "0.1"

@@ -27,6 +27,7 @@ This file is meant to be the cleaner export target for HTML/PDF/website work.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from tabulate import tabulate
 
 from src.data.interface import get_returns
 from src.data.sampling import bootstrap_time_paths
@@ -100,6 +101,9 @@ plot_bootstrap_time_paths(
     original_da=asset_returns,
 )
 #+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/artifact01_bootstrap_paths_aapl.png]]
 
 * Rolling Decomposition And Optimization
 
@@ -213,7 +217,7 @@ run is kept as =NaN= weights and logged in the diagnostics tables. The
 bootstrap paths and realized path are summarized separately so the realized
 reference run does not mask bootstrap-path instability.
 
-#+begin_src jupyter-python :exports both :results output
+#+begin_src jupyter-python :exports both :results output raw
 def summarize_diagnostics(df):
     return pd.Series(
         {
@@ -232,10 +236,20 @@ diagnostic_summary = pd.DataFrame(
         "bootstrap_paths": summarize_diagnostics(diagnostics_df),
         "realized_path": summarize_diagnostics(realized_diagnostics_df),
     }
-).T
+)
 
 print(diagnostic_summary.to_string())
 #+end_src
+
+#+RESULTS:
+:                          bootstrap_paths  realized_path
+: n_records                    1080.000000     108.000000
+: success_rate                    1.000000       1.000000
+: constraint_violations           0.000000       0.000000
+: median_cond_number             32.506941      36.918106
+: max_cond_number               184.024937      92.289962
+: median_obj_improvement         -0.411797      -0.447335
+: max_multi_init_obj_diff         0.000001       0.000001
 
 * Main Figure: Rolling Weight Dispersion
 
