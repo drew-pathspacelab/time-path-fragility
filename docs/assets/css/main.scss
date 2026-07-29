@@ -150,3 +150,96 @@ $header-font-family: $global-font-family !default;
   --font-feature-title: 1.35rem;
   --font-feature-body: 1rem;
 }
+
+/* ==========================================================================
+   4. LANDING PAGE ENHANCEMENTS (index.md)
+   Section rhythm, card grid, and hover states for the splash page.
+   Uses the CSS custom properties defined above, not $sass-variables,
+   so it compiles fine even if psl-colors.scss changes later.
+   ========================================================================== */
+
+/* Section rhythm & separation
+   Wrap each ## section on the splash page in <section class="psl-section"
+   markdown="1"> ... </section> (add "psl-section--alt" to alternate the
+   background) so scrolling sections read as distinct blocks instead of
+   blending together. */
+.psl-section {
+  padding: 3rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.psl-section:first-of-type {
+  border-top: none;
+}
+
+.psl-section--alt {
+  background: var(--surface-alt);
+  border-radius: 12px;
+}
+
+/* Card grid for the Research Artifacts row
+   Replaces the feature_row include for this section so each card can carry
+   more than one link/button and is easy to extend as new artifacts land. */
+.psl-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.psl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.psl-card:hover,
+.psl-card:focus-within {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .08);
+  border-color: var(--brand-accent);
+}
+
+.psl-card h3 {
+  margin-top: 0;
+  color: var(--brand-primary);
+}
+
+.psl-card-link {
+  display: inline-block;
+  margin-right: 1rem;
+  font-weight: 600;
+  color: var(--brand-secondary);
+  transition: color .15s ease, transform .15s ease;
+
+  &:hover,
+  &:focus {
+    color: var(--brand-accent);
+    text-decoration: underline;
+    transform: translateX(2px);
+  }
+}
+
+/* Inline CTA button, for single call-to-action links outside the hero
+   (e.g. the "Read the Essay" link in the Start Here section). Gives the
+   same button look as .btn--primary without needing a feature_row include. */
+.psl-btn {
+  display: inline-block;
+  margin-top: .5rem;
+  padding: .6rem 1.4rem;
+  border-radius: 4px;
+  background: var(--brand-accent);
+  color: #fff !important;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: background .15s ease, transform .15s ease;
+}
+
+.psl-btn:hover,
+.psl-btn:focus {
+  background: var(--brand-primary);
+  transform: translateY(-2px);
+  color: #fff !important;
+}

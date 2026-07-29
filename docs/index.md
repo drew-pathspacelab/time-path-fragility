@@ -15,25 +15,6 @@ header:
     btn_class: "btn--primary"
 intro:
   - title: "Why simulate alternative paths?"
-start_row:
-  actions:
-    - label: "Read the Essay"
-      url: /writing/beyond-the-realized-path/
-      btn_class: "btn--primary"
-artifact_row:
-  - title: "Artifact 01"
-    excerpt: "Is a minimum-variance portfolio stable under alternative realizations of the same market history?"
-    actions:
-      - label: "Read →"
-        url: /artifact_01_spec.html
-        btn_class: "btn--primary"
-      - label: "Notebook →"
-        url: /artifact_01_spec.html
-        btn_class: "btn--primary"
-  - title: "Risk Model Framework"
-    excerpt: "Building reusable tools for factor decomposition and covariance estimation."
-  - title: "Alternative Path Generator"
-    excerpt: "An evolving simulation engine for generating plausible market histories."
 ---
 
 {% include feature_row id="intro" type="center" %}
@@ -48,21 +29,63 @@ By generating and studying plausible alternatives, we can ask different question
 
 <span style="color: var(--brand-primary);">**Pathspace Lab**</span> explores these questions through simulation.
 
+<section class="psl-section" markdown="1">
+
 ## Start Here
 
 If you're new to Pathspace Lab, the best introduction is the essay:
 
-Beyond the Realized Path
+### Beyond the Realized Path
 
 It tells the story that motivated this project, from building equity risk models to asking a deceptively simple question:
 
 How much of what we believe depends on the single history we happened to observe?
 
-{% include feature_row id="start_row" %}
+[Read the Essay →](/writing/beyond-the-realized-path/){: .psl-btn }
+
+</section>
+
+<section class="psl-section psl-section--alt" markdown="1">
 
 ## Research Artifacts
 
-{% include feature_row id="artifact_row" %}
+<div class="psl-card-grid" markdown="1">
+
+<div class="psl-card" markdown="1">
+
+### Artifact 01
+
+Is a minimum-variance portfolio stable under alternative realizations of the same market history?
+
+[Read →](/artifact_01_spec.html){: .psl-card-link } [Notebook →](/artifact_01_spec.html){: .psl-card-link }
+
+</div>
+
+<div class="psl-card" markdown="1">
+
+### Risk Model Framework
+
+Building reusable tools for factor decomposition and covariance estimation.
+
+[Read →](/writing/beyond-the-realized-path/){: .psl-card-link }
+
+</div>
+
+<div class="psl-card" markdown="1">
+
+### Alternative Path Generator
+
+An evolving simulation engine for generating plausible market histories.
+
+[Read →](/writing/beyond-the-realized-path/){: .psl-card-link }
+
+</div>
+
+</div>
+
+</section>
+
+<section class="psl-section" markdown="1">
 
 ## <span style="color: var(--text-primary);">Why</span> <span style="color: var(--brand-secondary);">***Pathspace***</span>?
 
@@ -74,6 +97,10 @@ Markets share a similar property. We observe one realized history, but countless
 
 <span style="color: var(--brand-primary);">Pathspace Lab</span> grew from that simple observation.
 
+</section>
+
+<section class="psl-section psl-section--alt" markdown="1">
+
 ## Research in Progress
 
 Every artifact on this site is part of a larger question:
@@ -84,4 +111,6 @@ Pathspace Lab is an ongoing attempt to explore that question through simulation,
 
 If these questions interest you, I'd welcome the opportunity to connect, collaborate, or simply exchange ideas.
 
-→ About → Contact
+[About →](/writing/beyond-the-realized-path/){: .psl-card-link } &nbsp;&nbsp; [Contact →](/writing/beyond-the-realized-path/){: .psl-card-link }
+
+</section>
