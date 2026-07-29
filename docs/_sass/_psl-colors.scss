@@ -1,0 +1,42 @@
+// Blues
+$psl-blue-1: #0b1f3b;
+$psl-blue-2: #123a63;
+$psl-blue-3: #2f5d8c;
+$psl-blue-4: #c9d6e5;
+$psl-blue-5: #f2f5f8;
+
+// Slates
+$psl-slate-1: #182433;
+$psl-slate-2: #334155;
+$psl-slate-3: #64748b;
+$psl-slate-4: #94a3b8;
+$psl-slate-5: #cbd5e1;
+$psl-slate-6: #f8fafc;
+
+// Accent
+$psl-copper: #C97A2B;
+$psl-success: #2B6C7D;
+$psl-error: #C53D3D;
+
+/* Aliases*/
+// Brand
+$brand-primary: $psl-blue-1;
+$brand-secondary: $psl-blue-2;
+$brand-accent: $psl-copper;
+
+// UI
+$surface: $psl-slate-6;
+$surface-alt: $psl-blue-5;
+$surface-raised: #ffffff;
+$text-primary: $psl-slate-1;
+$text-secondary: $psl-slate-3;
+$text-inverse: #ffffff;
+$border: $psl-slate-5;
+
+$success: $psl-success;
+$error: $psl-error;
+
+$link: $brand-secondary;
+$link-hover: $brand-accent;
+
+$focus-ring: rgba($brand-accent, .25);

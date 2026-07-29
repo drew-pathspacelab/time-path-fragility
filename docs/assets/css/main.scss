@@ -1,0 +1,152 @@
+---
+---
+
+/* ==========================================================================
+   1. SASS VARIABLE OVERRIDES (BEFORE IMPORT)
+   Compiler-level variables that configure the theme before it builds.
+   ========================================================================== */
+
+/* Typography */
+
+/* Base font size relative to browser default (100% = 16px).
+   Setting this to 87.5% (14px|10.5pt) scales down the entire site proportionately. */
+$doc-font-size: 90% !default;
+
+/* Base font family (optional - if you want to customize fonts site-wide) */
+$global-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !default;
+$header-font-family: $global-font-family !default;
+
+
+/* ==========================================================================
+   2. THEME IMPORT & SELECTOR OVERRIDES (AFTER IMPORT)
+   ========================================================================== */
+@import "minimal-mistakes";
+
+/* Kill the pseudo-element underline bar (::before and ::after) */
+.greedy-nav a::before,
+.greedy-nav a::after,
+.greedy-nav .visible-links a::before,
+.greedy-nav .visible-links a::after,
+.masthead__menu-item a::before,
+.masthead__menu-item a::after {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Base Nav Link Styling (Full Opacity & Remove native borders/shadows) */
+.greedy-nav a,
+.greedy-nav .visible-links a,
+.masthead__menu-item a {
+  color: var(--text-primary);
+  opacity: 1;
+  text-decoration: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* Hover & Focus State (Opacity drop only) */
+.greedy-nav a:hover,
+.greedy-nav .visible-links a:hover,
+.masthead__menu-item a:hover,
+.greedy-nav a:focus,
+.greedy-nav .visible-links a:focus,
+.masthead__menu-item a:focus {
+  opacity: 0.7 !important;
+  text-decoration: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* Customizing the Site Title Specifically */
+.greedy-nav .site-title {
+  font-size: 1.3em !important;      /* Makes title ~30% larger than default nav font */
+  color: var(--brand-primary) !important; /* Custom title color */
+  font-weight: bold;
+}
+
+/* Hover state for Site Title */
+.greedy-nav .site-title:hover {
+  opacity: 0.85 !important;
+  color: var(--text-primary) !important; /* Optional: different color when hovering title */
+}
+
+/* Target the Hero Overlay Title */
+.page__hero .page__title,
+.page__hero--overlay .page__title {
+  font-size: var(--font-hero-title) !important;
+}
+
+/* Target the Hero Overlay Excerpt / Subtitle (Minimal Mistakes uses .page__lead) */
+.page__hero .page__lead,
+.page__hero--overlay .page__lead {
+  font-size: var(--font-hero-excerpt) !important;
+  line-height: 1.6;
+}
+
+/* Target Splash Feature Row Titles */
+.feature__wrapper .archive__item-title,
+.feature__item .archive__item-title {
+  font-size: var(--font-feature-title) !important;
+}
+
+/* Target Splash Feature Row Excerpts & Body Text */
+.feature__wrapper .archive__item-excerpt,
+.feature__item .archive__item-excerpt,
+.feature__item p {
+  font-size: var(--font-feature-body) !important;
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   3. CSS RUNTIME VARIABLES
+   Global CSS custom properties and targeted rules to override defaults.
+   ========================================================================== */
+
+@import "psl-colors";
+
+:root {
+  /* ----------------------------------------------------------------------
+     Raw Brand Palette
+     ---------------------------------------------------------------------- */
+
+  --psl-blue-1: #{$psl-blue-1};
+  --psl-blue-2: #{$psl-blue-2};
+  --psl-blue-3: #{$psl-blue-3};
+  --psl-blue-4: #{$psl-blue-4};
+  --psl-blue-5: #{$psl-blue-5};
+
+  --psl-slate-1: #{$psl-slate-1};
+  --psl-slate-2: #{$psl-slate-2};
+  --psl-slate-3: #{$psl-slate-3};
+  --psl-slate-4: #{$psl-slate-4};
+  --psl-slate-5: #{$psl-slate-5};
+  --psl-slate-6: #{$psl-slate-6};
+
+  /* ----------------------------------------------------------------------
+     Semantic Theme Tokens
+     ---------------------------------------------------------------------- */
+
+  --brand-primary: #{$brand-primary};
+  --brand-secondary: #{$brand-secondary};
+  --brand-accent: #{$brand-accent};
+
+  --surface: #{$surface};
+  --surface-alt: #{$surface-alt};
+
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+
+  --border: #{$border};
+
+  --success: #{$success};
+  --error: #{$error};
+
+  --font-hero-title: 2rem;
+  --font-hero-excerpt: 1rem;
+
+  --font-feature-title: 1.35rem;
+  --font-feature-body: 1rem;
+}

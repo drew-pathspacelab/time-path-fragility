@@ -1,36 +1,178 @@
+@import "psl-colors";
+
 /* ==========================================================================
-   Pathspace Lab skin
-   ==========================================================================
+   PSL Skin
+   ========================================================================== */
 
-   Palette reference: /assets/reference/PSL_color_palette.jpeg
+/* Colors
+   ========================================================================== */
 
-   Minimal Mistakes skins are Sass variable overrides. Keep this file local and
-   set `minimal_mistakes_skin: "pathspace"` in docs/_config.yml. The remote
-   theme still supplies layouts, includes, and base styles.
-*/
+$background-color:           $surface !default;
+$text-color:                 $text-primary !default;
+$muted-text-color:           $text-secondary !default;
 
-/* Base colors */
-$background-color: #c9d6e5 !default;
-$text-color: #17211f !default;
-$muted-text-color: #64736d !default;
-$primary-color: #1e6f68 !default;
-$border-color: mix(#ffffff, #d9c9aa, 25%) !default;
-$footer-background-color: #F2F5F8 !default;
-$link-color: #2F5D8C !default;
-$masthead-link-color: #0b1f3b !default;
-$masthead-link-color-hover: #0b1f3b !default;
-$navicon-link-color-hover: #c9d6e5 !default;
+$primary-color:              $brand-accent !default;
 
-/* Notices and code */
-$notice-background-mix: 90% !default;
-$code-background-color: mix(#ffffff, $background-color, 65%) !default;
-$code-background-color-dark: #17211f !default;
+$link-color:                 $brand-secondary !default;
+$link-color-hover:           $brand-accent !default;
+
+$border-color:               $border !default;
+
+$footer-background-color:    $surface-alt !default;
+
+/* Masthead */
+
+$masthead-link-color:        $brand-primary !default;
+$masthead-link-color-hover:  $brand-accent !default;
+
+$navicon-link-color-hover:   $brand-accent !default;
+
+
+/* Notices & Code
+   ========================================================================== */
+
+$notice-background-mix: 92% !default;
+
+$code-background-color: mix(
+  $surface,
+  $surface-alt,
+  70%
+) !default;
+
+$code-background-color-dark: $text-primary !default;
+
+
+/* ==========================================================================
+   Component Overrides
+   ========================================================================== */
 
 /* Buttons */
+
+.btn,
 .btn--primary {
+
   background-color: $primary-color;
+  border-color: darken($primary-color, 6%);
+  color: #fff;
+
+  &:hover,
+  &:focus {
+    background-color: darken($primary-color, 8%);
+    border-color: darken($primary-color, 14%);
+    color: #fff;
+  }
 }
 
-.btn--primary:hover {
-  background-color: mix(#000000, $primary-color, 18%);
+.btn--inverse {
+
+  background-color: $brand-secondary;
+  border-color: $brand-secondary;
+  color: #fff;
+
+  &:hover,
+  &:focus {
+    background-color: $brand-primary;
+    border-color: $brand-primary;
+  }
+}
+
+
+/* Links */
+
+a {
+
+  transition: color .15s ease;
+
+  &:hover,
+  &:focus {
+    color: $brand-accent;
+  }
+}
+
+
+/* Masthead */
+
+.masthead {
+
+  border-bottom: 1px solid $border;
+}
+
+
+/* Footer */
+
+.page__footer {
+
+  background: $footer-background-color;
+  color: $text-secondary;
+
+  a {
+    color: $brand-secondary;
+
+    &:hover {
+      color: $brand-accent;
+    }
+  }
+}
+
+
+/* Tables */
+
+table {
+
+  border-color: $border;
+
+  th {
+
+    background: $brand-primary;
+    color: #fff;
+  }
+
+  tbody tr:nth-child(even) {
+
+    background: rgba($border, .25);
+  }
+}
+
+
+/* Blockquotes */
+
+blockquote {
+
+  border-left: 4px solid $brand-accent;
+  color: $text-secondary;
+}
+
+
+/* Forms */
+
+input,
+textarea,
+select {
+
+  border-color: $border;
+
+  &:focus {
+
+    border-color: $brand-accent;
+    box-shadow: 0 0 0 .15rem rgba($brand-accent, .18);
+  }
+}
+
+
+/* Search */
+
+.search-content {
+
+  .archive__item-title a:hover {
+
+    color: $brand-accent;
+  }
+}
+
+
+/* Notices */
+
+.notice {
+
+  border-left: 4px solid $brand-accent;
 }

@@ -1,79 +1,87 @@
 ---
 layout: splash
 title: "Simulating Alternative Paths"
-excerpt: "Because a single backtest is merely a story."
+excerpt: "<em>Pathspace Lab is an independent research studio exploring risk, uncertainty, and complex systems through simulation.</em><br><br> We develop models, tools, and experiments that generate alternative histories and possible trajectories, helping us understand not only what happened, but what could have happened."
 author_profile: false
 header:
-  overlay_color: "#123a63"
+  overlay_color: var(--brand-primary)
+  overlay_filter: 0.05
   actions:
-    - label: "Featured Project"
-      url: /artifact_01_spec.html
-intro:
-  - title: 'What is a <span class="pathspace-term">pathspace</span>?'
-theme_row:
-  - title: "Risk Models and Market Structure"
-    excerpt: "Understanding how factors, sectors, and residual behavior shape market dynamics."
-  - title: "Alternative Histories"
-    excerpt: "Generating plausible market paths and stress scenarios from risk decompositions and stochastic processes."
-  - title: "Fragility and Uncertainty"
-    excerpt: "Studying how systems respond to shocks, regime changes, and rare events."
-project_row:
-  - image_path: /assets/artifact-01/rolling-weight-bands.png
-    alt: "Bootstrap rolling portfolio weight dispersion with realized path overlay"
-    title: "Alternative Market Histories - Research Artifact-01"
-    excerpt: "A research project exploring how portfolio decisions change when the same market history is resampled into plausible alternative time paths."
+  - label: "Read the Research"
     url: /artifact_01_spec.html
-    btn_label: "Read Artifact 01"
     btn_class: "btn--primary"
-figure_row:
-  - image_path: /assets/artifact-01/bootstrap-paths-aapl.png
-    alt: "AAPL bootstrap cumulative return paths"
-    title: "Bootstrap Paths"
-    excerpt: "Example alternative time paths generated from observed log returns."
-  - image_path: /assets/artifact-01/cumulative-return-dispersion.png
-    alt: "Portfolio cumulative return dispersion across bootstrap paths"
-    title: "Return Dispersion"
-    excerpt: "Portfolio cumulative return dispersion across bootstrap paths, with the realized path shown as a reference."
-  - image_path: /assets/artifact-01/rolling-weight-std.png
-    alt: "Cross-path standard deviation of rolling portfolio weights"
-    title: "Weight Fragility"
-    excerpt: "Cross-path weight dispersion shows when the optimizer becomes most sensitive to the sampled return path."
+  - label: "Read the Essay"
+    url: /writing/beyond-the-realized-path/
+    btn_class: "btn--primary"
+intro:
+  - title: "Why simulate alternative paths?"
+start_row:
+  actions:
+    - label: "Read the Essay"
+      url: /writing/beyond-the-realized-path/
+      btn_class: "btn--primary"
+artifact_row:
+  - title: "Artifact 01"
+    excerpt: "Is a minimum-variance portfolio stable under alternative realizations of the same market history?"
+    actions:
+      - label: "Read →"
+        url: /artifact_01_spec.html
+        btn_class: "btn--primary"
+      - label: "Notebook →"
+        url: /artifact_01_spec.html
+        btn_class: "btn--primary"
+  - title: "Risk Model Framework"
+    excerpt: "Building reusable tools for factor decomposition and covariance estimation."
+  - title: "Alternative Path Generator"
+    excerpt: "An evolving simulation engine for generating plausible market histories."
 ---
 
 {% include feature_row id="intro" type="center" %}
 
-In mathematics and physics, a **pathspace** is the collection of all possible paths a system could take through time.
+Many analysis begins with a single realized history. Markets, experiments, and complex systems each leave behind one path through time, yet many other paths were possible.
 
-Most analysis focuses on the *single path* that occurred.
+By generating and studying plausible alternatives, we can ask different questions:
 
-Pathspace Lab explores the **larger space of paths** that *could have occurred*. By studying alternative histories, simulated futures, and unexpected outcomes, we can better understand *fragility*, *resilience*, and **uncertainty** in complex systems.
+- How dependent are our conclusions on the particular sequence of events?
+- Which observations are robust, and which are artifacts of a single realization?
+- What changes when a time path unfolds differently?
 
-{% include feature_row id="theme_row" %}
+<span style="color: var(--brand-primary);">**Pathspace Lab**</span> explores these questions through simulation.
 
-## Featured Project
+## Start Here
 
-{% include feature_row id="project_row" %}
+If you're new to Pathspace Lab, the best introduction is the essay:
 
-Starting from observed asset and factor returns, Artifact 01 uses block bootstrap sampling to construct alternative histories that preserve local return structure while changing the realized sequence. Each path is passed through the same factor decomposition and rolling minimum-variance optimizer, making it possible to compare the realized path against a distribution of portfolios and outcomes that could have emerged from the same data.
+Beyond the Realized Path
 
-The goal is not prediction.
+It tells the story that motivated this project, from building equity risk models to asking a deceptively simple question:
 
-The goal is exploration.
+How much of what we believe depends on the single history we happened to observe?
 
-## About
+{% include feature_row id="start_row" %}
 
-I'm Drew Tilley, a quantitative researcher and software engineer working at the intersection of risk modeling, simulation, and complex systems.
+## Research Artifacts
 
-My background includes developing equity risk models, portfolio optimization tools, and large-scale financial datasets.
+{% include feature_row id="artifact_row" %}
 
-Pathspace Lab is my independent research effort to explore uncertainty, alternative histories, and generative approaches to modeling complex systems.
+## <span style="color: var(--text-primary);">Why</span> <span style="color: var(--brand-secondary);">***Pathspace***</span>?
 
-## Current Status
+The name comes from mathematics and physics, where a *pathspace* is the collection of all possible paths a system can take through time.
 
-Pathspace Lab is an active research project. Current efforts include block bootstrap time-path generation, portfolio and factor-model research, and open-source tooling.
+My interest in the idea predates finance. During graduate school I studied stochastic processes in biophysical systems, where individual molecules, proteins, and ion channels evolve along many possible trajectories rather than a single predetermined path.
 
-The project is intentionally exploratory and welcomes discussion and collaboration.
+Markets share a similar property. We observe one realized history, but countless others were possible.
 
-## Figures
+<span style="color: var(--brand-primary);">Pathspace Lab</span> grew from that simple observation.
 
-{% include feature_row id="figure_row" %}
+## Research in Progress
+
+Every artifact on this site is part of a larger question:
+
+**How much of what we believe depends on the single history we happened to observe?**
+
+Pathspace Lab is an ongoing attempt to explore that question through simulation, software, and writing. The work is shared incrementally, with each project contributing another piece of the picture.
+
+If these questions interest you, I'd welcome the opportunity to connect, collaborate, or simply exchange ideas.
+
+→ About → Contact
