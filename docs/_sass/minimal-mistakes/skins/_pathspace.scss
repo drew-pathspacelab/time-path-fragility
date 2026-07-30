@@ -54,12 +54,17 @@ $code-background-color-dark: $text-primary !default;
   background-color: $primary-color;
   border-color: darken($primary-color, 6%);
   color: #fff;
+  border-radius: 4px;
+  transition: background-color .18s ease, border-color .18s ease,
+              transform .18s ease, box-shadow .18s ease;
 
   &:hover,
   &:focus {
     background-color: darken($primary-color, 8%);
     border-color: darken($primary-color, 14%);
     color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
   }
 }
 
@@ -68,14 +73,18 @@ $code-background-color-dark: $text-primary !default;
   background-color: $brand-secondary;
   border-color: $brand-secondary;
   color: #fff;
+  border-radius: 4px;
+  transition: background-color .18s ease, border-color .18s ease,
+              transform .18s ease, box-shadow .18s ease;
 
   &:hover,
   &:focus {
     background-color: $brand-primary;
     border-color: $brand-primary;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
   }
 }
-
 
 /* Links */
 

@@ -111,6 +111,6 @@ Pathspace Lab is an ongoing attempt to explore that question through simulation,
 
 If these questions interest you, I'd welcome the opportunity to connect, collaborate, or simply exchange ideas.
 
-[About →](/writing/beyond-the-realized-path/){: .psl-card-link } &nbsp;&nbsp; [Contact →](/writing/beyond-the-realized-path/){: .psl-card-link }
+[About →](/perturbations.html){: .psl-card-link } &nbsp;&nbsp; [Contact →](/contact.html){: .psl-card-link }
 
 </section>

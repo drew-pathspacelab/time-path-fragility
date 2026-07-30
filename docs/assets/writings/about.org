@@ -1,0 +1,20 @@
+# -*- eval: (my/org-typewriter-mode); -*-
+#+title: About
+
+I'm an independent quantitative researcher exploring how uncertainty, simulation, and path dependence influence financial models.
+
+I was not always interested in finance. I trained as a biophysicist, where I studied complex systems whose behavior emerged from countless microscopic interactions. Whether tracking molecules, modeling stochastic processes, or interpreting noisy experimental data, the challenge was always the same: understand systems that rarely behave exactly the way we expect.
+
+Over time I realized many of the same questions appear in quantitative finance. Markets are complex adaptive systems. Risk models often rely on a single realized history, yet every investment decision is implicitly about many possible futures. That observation led me to ask a simple question:
+
+> How much of what we conclude depends on the particular path history happened to take?
+
+That question became the foundation for Pathspace Lab.
+
+Here I build open, reproducible research that investigates the stability of quantitative models under alternative but plausible histories. Rather than asking whether a model performs well on one realized timeline, I'm interested in how its conclusions change when the same information is rearranged into many possible paths. Sometimes the results are reassuring. Sometimes they reveal surprising fragility.
+
+My work combines statistical modeling, simulation, optimization, and scientific computing, with an emphasis on transparency and reproducibility. Every project is designed so others can inspect the assumptions, reproduce the analysis, and build upon it.
+
+Pathspace Lab is also an experiment in independent research. I believe some of the most interesting questions emerge outside traditional organizational boundaries, where curiosity can guide the agenda instead of quarterly priorities.
+
+If you're interested in quantitative research, risk modeling, simulation, or simply enjoy exploring difficult questions about uncertainty, I'd be glad to connect.
