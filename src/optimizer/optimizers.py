@@ -29,8 +29,73 @@ def optimize(
         raise_on_failure: bool = True,
 ) -> pd.Series:
     """
-    Optimize portfolio weights from expected returns and covariance.
+    Optimize portfolio weights from expected returns and a covariance matrix.
+
+    The covariance matrix is first validated for shape, symmetry, positive diagonal
+    scale, and positive semi-definiteness. These pre-optimization validation checks
+    always raise an exception on failure, regardless of ``raise_on_failure``. In
+    particular, a covariance matrix with an eigenvalue below the PSD tolerance raises
+    ``ValueError("Covariance is not PSD.")`` before the solver is called and before
+    any diagnostic record is returned.
+
+    When validation succeeds, weights are computed with SciPy's SLSQP optimizer.
+    If the solver fails to converge and ``raise_on_failure=True``, a ``ValueError``
+    is raised. If ``raise_on_failure=False``, the function returns a weight Series
+    indexed by asset with all values set to NaN. When ``return_diagnostics=True``,
+    the accompanying ``DiagnosticRecord`` has ``success=False`` and records the
+    solver status, message, objective value, and iteration count. These solver
+    failures are therefore reflected in downstream diagnostics such as
+    ``diagnostics_df["success"].mean()``.
+
+    Post-solution constraint checks are handled separately. If a returned solution
+    violates budget, long-only, leverage, or bound constraints and
+    ``raise_on_failure=True``, a ``ValueError`` is raised. If
+    ``raise_on_failure=False``, the weights are retained and the diagnostic record's
+    ``constraint_violation`` counter is incremented. These violations do not change
+    ``record.success``; they should be summarized separately from solver convergence.
+
+    Parameters
+    ----------
+    cov : pandas.DataFrame
+        Square symmetric covariance matrix indexed and columned by asset.
+    mu : pandas.Series, optional
+        Expected returns indexed by asset. Required for mean-variance and max-Sharpe
+        objectives; omitted values are aligned to ``cov.index``.
+    objective : {"min_variance", "mean_variance", "max_sharpe"}
+        Optimization objective.
+    long_only : bool, default True
+        If True, use nonnegative default bounds.
+    budget : float, default 1.0
+        Required net exposure, enforced as ``sum(weights) == budget``.
+    gross_budget, long_budget, short_budget : float, optional
+        Optional inequality constraints on gross, long, and short exposure.
+    risk_free_rate : float, default 0.0
+        Risk-free rate used by the max-Sharpe objective.
+    risk_aversion : float, default 1.0
+        Variance multiplier used by the mean-variance objective.
+    l2_reg : float, default 0.0
+        L2 penalty applied to portfolio weights.
+    bounds : tuple, optional
+        Common lower and upper bound for all assets.
+    max_weight, min_weight : float, optional
+        Convenience overrides for upper and lower bounds.
+    return_diagnostics : bool, default False
+        If True, return ``(weights, DiagnosticRecord)``.
+    diagnostic_context : dict, optional
+        Optional metadata copied into the diagnostic record, including ``path_id``,
+        ``time``, and ``window_start``.
+    raise_on_failure : bool, default True
+        Controls solver convergence failures and post-solution constraint failures.
+        Does not suppress pre-optimization input validation errors.
+
+    Returns
+    -------
+    pandas.Series or tuple[pandas.Series, DiagnosticRecord]
+        Optimized portfolio weights. If ``return_diagnostics=True``, also returns
+        the diagnostic record.
+
     """
+
     tol = 1e-6
     record = DiagnosticRecord() if return_diagnostics else None
     if record is not None and diagnostic_context is not None:
@@ -46,7 +111,7 @@ def optimize(
     # Scale for numberical stability
     scale = np.trace(cov) / cov.shape[0]  # average variance
     if scale <= 0:
-        raise ValueError("Covariance must be positive.")
+        raise ValueError("Covariance diagonal must be positive.")
     cov = (cov / scale).copy()
 
     cond = np.linalg.cond(cov)

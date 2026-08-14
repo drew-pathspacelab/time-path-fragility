@@ -4,6 +4,18 @@ import xarray as xr
 import pandas as pd
 import numpy as np
 
+SPDR_LABELS = {
+    "XLB": 'Materials',
+    "XLE": 'Energy',
+    "XLF": 'Financials',
+    "XLI": 'Industrials',
+    "XLK": 'Information Technology',
+    "XLP": 'Consumer Staples',
+    "XLU": 'Utilities',
+    "XLV": 'Health Care',
+    "XLY": 'Consumer Discretionary',
+    "XLRE": 'Real Estate',
+}
 
 """
 Boilerplate dataclass auto generates dunder methods and structure.

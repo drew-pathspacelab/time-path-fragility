@@ -256,18 +256,81 @@ class CovarianceEstimator(BaseEstimator):
 
 
 def compute_mu(data, factor_returns=None, **kwargs) -> pd.Series:
+    """Estimate the expected return (mean) vector for a set of assets.
+
+    Thin functional wrapper around :class:`MeanEstimator`: constructs the
+    estimator with the given keyword arguments, fits it to ``data`` (and
+    optionally ``factor_returns``), and returns the fitted mean vector.
+
+    Parameters
+    ----------
+    data : pd.DataFrame or xr.Dataset
+        Input data used to estimate the mean. For ``method="hist"`` or
+        ``"ewma"``, this is passed to ``to_returns_frame`` to build a
+        returns frame. For ``method="factor_model"``, this must be an
+        ``xarray.Dataset`` containing ``betas`` and ``residuals`` (and
+        optionally ``alphas``).
+    factor_returns : xr.DataArray, optional
+        Factor return series with dims ``("time", "factor")``. Required
+        when ``method="factor_model"``; ignored otherwise.
+    **kwargs
+        Additional keyword arguments forwarded to
+        :class:`MeanEstimator`, e.g. ``method`` ("hist", "ewma", or
+        "factor_model"), ``halflife`` (required for "ewma"),
+        ``shrinkage``, ``shrinkage_target`` ("zero" or "grand_mean"),
+        and ``variable``.
+
+    Returns
+    -------
+    pd.Series
+        Estimated (and shrunk) mean return for each asset, indexed by
+        asset.
+    """
     estimator = MeanEstimator(**kwargs)
     estimator.fit(data, y=factor_returns)
     return estimator.mean_.copy()
 
 
 def compute_cov(data, factor_returns=None, **kwargs) -> pd.DataFrame:
+    """Estimate the covariance matrix of asset returns.
+
+    Thin functional wrapper around :class:`CovarianceEstimator`:
+    constructs the estimator with the given keyword arguments, fits it to
+    ``data`` (and optionally ``factor_returns``), and returns the fitted,
+    shrunk, and numerically stabilized covariance matrix.
+
+    Parameters
+    ----------
+    data : pd.DataFrame or xr.Dataset
+        Input data used to estimate the covariance. For ``method="hist"``
+        or ``"ewma"``, this is passed to ``to_returns_frame`` to build a
+        returns frame. For ``method="factor_model"``, this must be an
+        ``xarray.Dataset`` containing ``betas`` and ``residuals``.
+    factor_returns : xr.DataArray, optional
+        Factor return series with dims ``("time", "factor")``. Required
+        when ``method="factor_model"``; ignored otherwise.
+    **kwargs
+        Additional keyword arguments forwarded to
+        :class:`CovarianceEstimator`, e.g. ``method`` ("hist", "ewma", or
+        "factor_model"), ``halflife`` (required for "ewma"),
+        ``shrinkage``, ``shrinkage_target`` ("diagonal" or "identity"),
+        ``variable``, and ``ridge`` (diagonal loading for numerical
+        stability).
+
+    Returns
+    -------
+    pd.DataFrame
+        Symmetric, positive-definite (ridge-stabilized) covariance
+        matrix, indexed and columned by asset.
+
+    Raises
+    ------
+    AssertionError
+        If the resulting covariance matrix contains any non-finite
+        values.
+    """
     estimator = CovarianceEstimator(**kwargs)
     estimator.fit(data, y=factor_returns)
-
     cov = estimator.covariance_.copy()
-
-    # Final checks
     assert np.all(np.isfinite(cov))
-
     return cov

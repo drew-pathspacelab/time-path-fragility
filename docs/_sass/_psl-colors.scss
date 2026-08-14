@@ -13,16 +13,23 @@ $psl-slate-4: #94a3b8;
 $psl-slate-5: #cbd5e1;
 $psl-slate-6: #f8fafc;
 
-// Accent
-$psl-copper: #C97A2B;
-$psl-success: #2B6C7D;
-$psl-error: #C53D3D;
+// Ambers
+$psl-amber-1: #A86624;
+$psl-amber-2: #C97A2B;
+$psl-amber-3: #DB9957;
+$psl-amber-4: #E4B281;
+$psl-amber-5: #EDCCAB;
+$psl-amber-6: #F1E6DA;
+
+// Accents
+$psl-teal: #2B6C7D;
+$psl-crimson:   #C53D3D;
 
 /* Aliases*/
 // Brand
 $brand-primary: $psl-blue-1;
 $brand-secondary: $psl-blue-2;
-$brand-accent: $psl-copper;
+$brand-accent: $psl-amber-2;
 
 // UI
 $surface: $psl-slate-6;
@@ -40,3 +47,8 @@ $link: $brand-secondary;
 $link-hover: $brand-accent;
 
 $focus-ring: rgba($brand-accent, .25);
+
+// Message Colors
+$psl-warning:  $psl-amber-2;
+$psl-success: $psl-teal;
+$psl-error:   $psl-crimson;

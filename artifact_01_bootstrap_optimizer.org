@@ -3,10 +3,21 @@
 #+OPTIONS: toc:2 num:nil html-style:nil
 #+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :dir (projectile-project-root) :mkdirp yes
 
-* Question
+#+begin_src jupyter-python :exports code :results none
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from src.viz.formatting import orgprint
 
-This artifact asks whether a minimum-variance portfolio is stable when the
-same asset and factor history is resampled into alternative time paths.
+%matplotlib inline
+plt.style.use('psl')
+#+end_src
+
+* 1. Question
+
+This artifact asks whether a minimum-variance portfolio remains stable when the same asset and factor history is rearranged into alternative time paths, with stability measured by the resulting portfolio weights.
+
+* 2. Experimental Design
 
 The workflow is intentionally narrow:
 
@@ -16,36 +27,44 @@ The workflow is intentionally narrow:
 - estimate factor-model covariance matrices at monthly rebalance dates
 - optimize a long-only minimum-variance portfolio at each rebalance date
 - summarize optimizer diagnostics and plot cross-path weight dispersion
-- compare bootstrap weight and cumulative-return dispersion against the realized path
+- compare bootstrap weight and cumulative-return dispersion using the realized path as the reference trajectory
 
-The longer exploratory notebook remains in =bootstrap_optimizer_walkthrough.org=.
-This file is meant to be the cleaner export target for HTML/PDF/website work.
+* 3. Data
 
-* Setup
+The experiment uses approximately ten years of daily returns ending on 2026-08-04. A fixed end date is used throughout the artifact so that results remain reproducible as the underlying data cache evolves.
+
+The asset universe consists of a small set of large-cap U.S. equities selected to span multiple sectors while remaining easy to inspect throughout the analysis. The explanatory variables consist of sector ETF returns. Rather than include both a broad market index and its constituent sectors, the regression uses only the sector factors, allowing the aggregate market exposure to emerge naturally from their combined movements. Using a deliberately modest universe keeps the optimization and resulting diagnostics interpretable, allowing changes in portfolio weights to be traced back to the estimated covariance structure rather than the complexity of a large investment universe.
+
+Each alternative history is generated using a moving block bootstrap with ten resampled paths and a block length of twenty-one trading days (approximately one month). This preserves short-term temporal dependence within each block while producing alternative long-run orderings of the observed market history.
+
+# TODO: Table with assets and factors
+
+Risk estimates are computed from rolling 252-trading-day windows and the portfolio is rebalanced every twenty-one trading days. Covariance matrices are constructed from the estimated factor model using a fixed shrinkage parameter of 0.10 before solving a long-only minimum-variance optimization at each rebalance date.
+
+#+CAPTION: Hyperparameter & Simulation Configurations
+#+NAME: tbl:parameters
+| Parameter            |      Value       |
+|----------------------+------------------|
+| <l>                  |       <c>        |
+| History Length       |     10 years     |
+| Paths                |        10        |
+| Bootstrap Block      | 21 trading days  |
+| Rolling Window       | 252 trading days |
+| Rebalance Frequency  | 21 trading days  |
+| Covariance Shrinkage |       0.10       |
+| Random Seed          |        42        |
 
 #+begin_src jupyter-python :exports code :results none
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from tabulate import tabulate
-
 from src.data.interface import get_returns
 from src.data.sampling import bootstrap_time_paths
 from src.data.universe import load_universe
-from src.model.regression import rolling_forward_decompose
-from src.model.risk import rolling_risk_decomposition
-from src.optimizer import compute_cov, optimize
-from src.optimizer.diagnostics import DiagnosticsTracker
-from src.viz.timepath_plots import plot_bootstrap_time_paths
-
-%matplotlib inline
 
 UNIVERSE = load_universe()
 ASSETS = UNIVERSE.assets
 FACTORS = UNIVERSE.market
 
 # Fixed end date keeps this artifact reproducible while the loader/caches evolve.
-END = "2026-04-09"
+END = "2026-08-04"
 START = (pd.Timestamp(END) - pd.DateOffset(years=10)).strftime("%Y-%m-%d")
 
 N_PATHS = 10
@@ -57,29 +76,29 @@ REBALANCE_EVERY = 21
 COV_SHRINKAGE = 0.10
 #+end_src
 
-* Load Returns
+** Load Returns
 
-The historical data uses explicit dataset variable names downstream:
-=asset_returns= for assets and =factor_returns= for factors. The dimensions are
-=time= plus either =asset= or =factor=.
+Daily asset and factor return series are loaded separately to preserve their distinct roles throughout the pipeline. Asset returns become the optimization universe, while factor returns provide the explanatory variables for the rolling risk model.
 
 #+begin_src jupyter-python :exports code :results none
 asset_returns = get_returns(ASSETS, START, END, use_cache=True)
 factor_returns = get_returns(FACTORS, START, END, is_factor=True, use_cache=True)
 #+end_src
 
-* Bootstrap Paths
+** Bootstrap Paths
 
-Block resampling samples contiguous chunks of time and stitches those chunks
-together into alternative paths. This keeps local return sequences intact, so
-short-horizon autocorrelation, volatility clustering, and contemporaneous
-asset-factor relationships are less distorted than they would be under an iid
-daily bootstrap.
+The alternative histories are generated using a moving block bootstrap. Rather than resampling individual trading days, the algorithm resamples contiguous blocks of observations and stitches them together into complete synthetic histories. This keeps local return sequences intact, so short-horizon autocorrelation, volatility clustering, and contemporaneous
+asset-factor relationships are less distorted than they would be under an iid daily bootstrap.
 
 Shorter blocks create more path dispersion but destroy more temporal structure.
 Longer blocks preserve more regime-like behavior but produce paths closer to
 the realized history. A 21-trading-day block is a practical first monthly
 choice for this artifact.
+
+#+CAPTION: *Figure 1. Construction of alternative histories using a moving block bootstrap. (A)* The realized history is partitioned into contiguous 21-trading-day blocks. Bootstrap paths are created by randomly selecting blocks with replacement and concatenating them into a full-length history, preserving within-block temporal structure while altering the long-run chronology. *(B)* Example cumulative return paths for AAPL generated from the resulting bootstrap histories. Although every path is composed entirely of observed returns, different block orderings produce distinct market trajectories.
+#+NAME: fig:bootstrap-schematic
+#+ATTR_HTML: :align center :alt Bootstrap Schematic
+[[file:./notebooks/figures/psl_canonical_figure_20260806.svg]]
 
 #+begin_src jupyter-python :exports code :results none
 paths_ds = bootstrap_time_paths(
@@ -92,27 +111,150 @@ paths_ds = bootstrap_time_paths(
 )
 #+end_src
 
-#+begin_src jupyter-python :file notebooks/figures/artifact01_bootstrap_paths_aapl.png :exports both :results graphics file
-plot_bootstrap_time_paths(
-    paths_ds,
-    "AAPL",
-    n_paths=5,
-    cumulative=True,
-    original_da=asset_returns,
+
+* 4. Methodology
+
+Each realized and bootstrapped history is processed using the same estimation pipeline. At each rebalance date, a rolling factor model is estimated from the previous 252 trading days. The resulting factor exposures and residual variances are used to construct a factor-model covariance matrix, which serves as the input to a long-only minimum-variance optimization. Repeating this procedure across every alternative history isolates the effect of path dependence on the estimated portfolio.
+
+** 4.1 Rolling Factor Decomposition
+
+For each asset, returns are decomposed into systematic factor exposures and an idiosyncratic residual using a rolling linear regression over the previous 252 trading days. The regression is re-estimated at each monthly rebalance date, allowing both factor sensitivities and residual risk to evolve through time. Applying the same procedure independently to every bootstrap path produces a distinct sequence of factor models for each alternative history. The asset return model below was used to decompose the asset returns.
+
+\[
+r_i(t) = \alpha_i(t) + \beta_i(t)f(t) + \epsilon_i(t)
+\]
+
+Where $r_i(t)$ is the daily return,  $\alpha_i(t)$ is the intercept,  $\beta_i(t)$ is the factor exposure, $f(t)$ is the factor returns, and $\epsilon_i(t)$ represents the error term.
+
+#+begin_src jupyter-python :exports code :results none
+from src.model.regression import rolling_forward_decompose
+from src.model.risk import rolling_risk_decomposition
+
+# Regression of the realized path
+forward_ds = rolling_forward_decompose(
+    asset_returns,
+    factor_returns,
+    window=WINDOW,
+    include_intercept=True,
+)
+# Return decompostion
+risk_ds = rolling_risk_decomposition(forward_ds, factor_returns)
+#+end_src
+
+#+CAPTION: *Figure 2. Rolling factor decomposition for AAPL on the realized path.* *(A)* Rolling exposures to selected sector factors from the full factor model. The coefficients are estimated from the preceding 252-trading-day window. *(B)* Share of modeled variance attributed to systematic factor risk and idiosyncratic residual risk over the same rolling windows. The systematic component is determined by the estimated factor exposures and factor covariance, while the residual component captures variance not explained by the factor model. Together, these estimates provide the inputs for the factor-model covariance matrix used in the portfolio optimization.
+#+NAME: fig:appl-exposure
+#+ATTR_HTML: :align center :alt APPL Exposure
+[[file:./notebooks/figures/artifact-01_figure-2.svg]]
+
+** 4.2 Covariance Estimation
+
+The rolling factor decompositions provide the inputs for estimating the covariance structure used by the portfolio optimizer. At each rebalance date, the covariance of asset returns is reconstructed from the estimated factor exposures, factor covariance, and asset-specific residual variance.
+
+For asset $(i)$, the factor model can be written as
+
+\[
+r_i = \beta_i^\top f + \epsilon_i,
+\]
+
+so the covariance matrix across assets is
+
+\[
+\Sigma = BFB^\top + D,
+\]
+
+where $B$ contains the estimated factor exposures, $F$ is the covariance matrix of the factors, and $D$ contains the residual variances. The first term captures covariance arising from shared factor exposures, while the diagonal residual term represents asset-specific risk not explained by the factors.
+
+The covariance matrix is estimated separately for each path and each rebalance date. Thus, changing the temporal ordering of the same observations can change both the estimated factor exposures and the covariance structure supplied to the optimizer.
+
+A fixed shrinkage parameter of 0.10 is applied to the estimated covariance matrix before optimization. This provides a modest regularization of the covariance estimate and reduces sensitivity to poorly conditioned estimates without changing the overall factor-model structure. The resulting matrix is then checked for numerical validity before being passed to the optimizer.
+
+#+begin_src jupyter-python :exports both :results none
+from src.optimizer import compute_cov
+
+"""This code block demonstrates computing the covariance matrix for the final date from the
+realized path. The window looks back on the previous year retrieving the values for B from the variance decomposition dataset. The factor returns vector F is estimated from the factor returns
+dataset. Lastly, the residual matrix D is estimated from the variance not attributed to the factors.
+"""
+
+t_end = pd.Timestamp(forward_ds.time[-1].values)
+t_start = t_end - pd.offsets.BDay(WINDOW - 1)
+forward_slice = forward_ds.sel(time=slice(t_start, t_end))
+factor_slice = factor_returns.sel(time=slice(t_start, t_end))
+
+cov = compute_cov(
+    forward_slice,
+    factor_returns=factor_slice,
+    method="factor_model",
+    shrinkage=COV_SHRINKAGE,
+    shrinkage_target="diagonal",
 )
 #+end_src
 
+** 4.3 Portfolio Optimization
+
+At each rebalance date, the estimated covariance matrix is used to construct a long-only minimum-variance portfolio. The optimization chooses portfolio weights that minimize the variance implied by the factor-model covariance estimate:
+
+\[
+\min_{w} = w^\top \Sigma w
+\]
+
+subjected to
+
+\[
+\sum_{i} w_i = 1,    w_i \geq 0.
+\]
+
+No expected-return estimates or forecasts enter the optimization. The portfolio is therefore determined entirely by the estimated covariance structure. This is intentional: the experiment is designed to isolate how changes in the estimated risk structure translate into different portfolio allocations.
+
+The optimization is repeated independently for every rebalance date and every alternative path. The realized history is processed using the same procedure, providing a reference trajectory against which the bootstrap portfolios can be compared.
+
+The resulting weights are recorded alongside optimizer diagnostics, including convergence status and the estimated portfolio variance. These diagnostics are used later to distinguish differences in portfolio weights arising from the alternative paths from potential numerical failures in the optimization itself.
+
+#+begin_src jupyter-python :exports code :results output raw
+from src.optimizer import optimize
+
+"""Compute the optimal weights for the demonstrative covariance matrix from above."""
+weights = optimize(
+    cov=cov,
+    objective="min_variance",
+    long_only=True,
+    budget=1.0,
+    raise_on_failure=False,
+)
+
+# Format Table
+weights_df = weights.to_frame(name="Weight")
+weights_df.index.name = 'Asset'
+weights_df["Weight"] = weights_df["Weight"].apply(lambda x: f"{x:.2%}")
+
+orgprint(weights_df)
+#+end_src
+
 #+RESULTS:
-[[file:notebooks/figures/artifact01_bootstrap_paths_aapl.png]]
+#+begin_example
+| Asset   | Weight   |
+|---------+----------|
+| AAPL    | 5.04%    |
+| AMT     | 4.33%    |
+| CAT     | 3.23%    |
+| JNJ     | 16.09%   |
+| JPM     | 9.53%    |
+| KO      | 14.55%   |
+| META    | 3.57%    |
+| MSFT    | 8.00%    |
+| NVDA    | 8.16%    |
+| PG      | 11.77%   |
+| XOM     | 15.73%   |
+#+end_example
 
-* Rolling Decomposition And Optimization
+** 4.4 Full Pipeline and Helper Functions
 
-For each bootstrap path, this section estimates a rolling factor decomposition
-and computes minimum-variance weights at monthly rebalance dates. Optimizer
-diagnostics are tracked separately so failures or instability can be summarized
-without interrupting the full path run.
+The optimization is repeated independently for every rebalance date and every alternative path. The realized history is processed using the same procedure, providing a reference trajectory against which the bootstrap portfolios can be compared. The resulting weights are recorded alongside optimizer diagnostics, including convergence status and the estimated portfolio variance.
 
 #+begin_src jupyter-python :exports code :results none
+from src.optimizer.diagnostics import DiagnosticsTracker
+
+# Helper Function
 def rolling_min_var_weights_for_path(
     asset_path_da,
     factor_path_da,
@@ -173,9 +315,8 @@ def rolling_min_var_weights_for_path(
     )
 
     return forward_ds, risk_ds, weights_df
-#+end_src
 
-#+begin_src jupyter-python :exports code :results none
+# Full Pipeline
 diagnostics = DiagnosticsTracker()
 realized_diagnostics = DiagnosticsTracker()
 rolling_models = {}
@@ -210,12 +351,13 @@ realized_weights_df = realized_weights_panel.xs(-1, level="path_id")
 realized_diagnostics_df = realized_diagnostics.to_dataframe()
 #+end_src
 
-* Diagnostics Gate
+* 5. Diagnostics
 
-This table is a quick check before interpreting the figures. A failed optimizer
-run is kept as =NaN= weights and logged in the diagnostics tables. The
-bootstrap paths and realized path are summarized separately so the realized
-reference run does not mask bootstrap-path instability.
+Before comparing portfolio weights across paths, the optimization pipeline is evaluated for numerical and statistical validity. Diagnostics are collected at each rebalance date so that differences in portfolio weights can be interpreted as consequences of the alternative histories rather than failures of the estimation or optimization procedure.
+
+** 5.1 Optimizer Convergence
+
+The optimizer reports convergence status at each rebalance date. A successful optimization requires the solver to terminate normally while satisfying the portfolio constraints. Failed or materially infeasible solutions are retained in the diagnostic record rather than silently discarded.
 
 #+begin_src jupyter-python :exports both :results output raw
 def summarize_diagnostics(df):
@@ -226,8 +368,12 @@ def summarize_diagnostics(df):
             "constraint_violations": df["constraint_violation"].sum(),
             "median_cond_number": df["cond_number"].median(),
             "max_cond_number": df["cond_number"].max(),
+            "min_obj_value": df["obj_value"].min(),
+            "median_obj_value": df["obj_value"].median(),
+            "max_obj_value": df["obj_value"].max(),
             "median_obj_improvement": df["obj_improvement"].median(),
-            "max_multi_init_obj_diff": df["obj_diff_init"].max(),
+            "median_n_iter": df['n_iter'].median(),
+            "max_n_iter": df['n_iter'].max(),
         }
     )
 
@@ -238,18 +384,24 @@ diagnostic_summary = pd.DataFrame(
     }
 )
 
-print(diagnostic_summary.to_string())
+orgprint(diagnostic_summary)
 #+end_src
 
 #+RESULTS:
-:                          bootstrap_paths  realized_path
-: n_records                    1080.000000     108.000000
-: success_rate                    1.000000       1.000000
-: constraint_violations           0.000000       0.000000
-: median_cond_number             32.506941      36.918106
-: max_cond_number               184.024937      92.289962
-: median_obj_improvement         -0.411797      -0.447335
-: max_multi_init_obj_diff         0.000001       0.000001
+#+begin_example
+| index                   |   bootstrap_paths |   realized_path |
+|-------------------------+-------------------+-----------------|
+| n_records               |    1080           |   108           |
+| success_rate            |       1           |     1           |
+| constraint_violations   |       0           |     0           |
+| median_cond_number      |      30.927       |    33.3867      |
+| max_cond_number         |     263.433       |   115.152       |
+| median_obj_value        |       0.170754    |     0.156517    |
+| median_obj_improvement  |      -0.386193    |    -0.446182    |
+| max_multi_init_obj_diff |       1.68865e-06 |     6.94644e-07 |
+| median_n_iter           |       8           |     8           |
+| max_n_iter              |      13           |    11           |
+#+end_example
 
 * Main Figure: Rolling Weight Dispersion
 

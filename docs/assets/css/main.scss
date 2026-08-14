@@ -35,7 +35,7 @@ $header-font-family: $global-font-family !default;
   background: transparent !important;
 }
 
-/* Base Nav Link Styling (Full Opacity & Remove native borders/shadows) */
+/* Base Nav Link Styling (Remove native underline/border/shadow) */
 .greedy-nav a,
 .greedy-nav .visible-links a,
 .masthead__menu-item a {
@@ -108,94 +108,103 @@ $header-font-family: $global-font-family !default;
   transform: translateY(-1px) scale(1.05);
 }
 
+/* Target the Hero Overlay Title */
+.page__hero .page__title,
+.page__hero--overlay .page__title {
+  font-size: var(--font-hero-title) !important;
+}
+
+/* Target the Hero Overlay Excerpt / Subtitle (Minimal Mistakes uses .page__lead) */
+.page__hero .page__lead,
+.page__hero--overlay .page__lead {
+  font-size: var(--font-hero-excerpt) !important;
+  line-height: 1.6;
+}
+
+/* Hero action buttons: Minimal Mistakes hardcodes these as
+   .btn.btn--light-outline.btn--large in page__hero.html (verified against
+   the theme source) and ignores any btn_class set in front matter. Target
+   the real class directly, scoped to the hero containers so it doesn't
+   affect any .btn--light-outline used elsewhere. */
+.page__hero .btn--light-outline,
+.page__hero--overlay .btn--light-outline {
+  border: none !important;
+  background-color: var(--brand-accent) !important;
+  color: #fff !important;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.page__hero .btn--light-outline:hover,
+.page__hero .btn--light-outline:focus,
+.page__hero--overlay .btn--light-outline:hover,
+.page__hero--overlay .btn--light-outline:focus {
+  background-color: var(--brand-secondary) !important;
+  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* Hero container: a little more breathing room, and a home for the
    decorative texture below, matching the generous section padding
    introduced further down the page. */
-.page__hero,
 .page__hero--overlay {
   position: relative;
   overflow: hidden;
   padding-top: 4rem;
   padding-bottom: 4rem;
+}
 
-  /* Subtitle / Excerpt */
-  .page__lead {
-    font-size: var(--font-hero-excerpt) !important;
-    line-height: 1.6;
-    margin-bottom: 1.5rem; /* Prevents crowding between excerpt & buttons */
-  }
+/* Faint "forking path" texture — the same mark used by the site title,
+   scaled up and dropped to low opacity as quiet background texture.
+   Right-aligned and non-interactive so it never competes with the text;
+   hidden on narrow screens where there's no room for it to breathe. */
+.page__hero--overlay::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -40px;
+  width: 320px;
+  height: 320px;
+  transform: translateY(-50%);
+  background-color: rgba(255, 255, 255, 0.14);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 12L10 12M10 12L19 3M10 12L19 8M10 12L19 12M10 12L19 16M10 12L19 21' stroke='%23000' stroke-width='1.1' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='12' r='0.9' fill='%23000'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 12L10 12M10 12L19 3M10 12L19 8M10 12L19 12M10 12L19 16M10 12L19 21' stroke='%23000' stroke-width='1.1' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='12' r='0.9' fill='%23000'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 0;
+}
 
-  /* Ensure text and actions sit above background pseudo-elements */
-  .page__title,
-  .page__lead,
-  .page__hero-actions {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Action buttons container spacing */
-  .page__hero-actions {
-    margin-top: 1.5rem;
-  }
-
-  /* Target custom button inside hero to override Minimal Mistakes defaults */
-  .btn.btn--primary {
-    display: inline-block;
-    opacity: 1 !important;
-    border: none !important;
-    text-decoration: none !important;
-    background-color: var(--brand-accent);
-    color: #ffffff !important;
-    padding: 0.65rem 1.25rem;
-    font-weight: 600;
-    border-radius: 4px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-
-    &:hover,
-    &:focus {
-      opacity: 1 !important;
-      background-color: var(--brand-secondary, #000000);
-      color: #ffffff !important;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-  }
-
-  /* Faint "forking path" texture — the same mark used by the site title,
-     scaled up and dropped to low opacity as quiet background texture.
-     Right-aligned and non-interactive so it never competes with the text;
-     hidden on narrow screens where there's no room for it to breathe. */
-  &::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: -40px;
-    width: 320px;
-    height: 320px;
-    transform: translateY(-50%);
-    background-color: rgba(255, 255, 255, 0.14);
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 12L10 12M10 12L19 3M10 12L19 8M10 12L19 12M10 12L19 16M10 12L19 21' stroke='%23000' stroke-width='1.1' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='12' r='0.9' fill='%23000'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2 12L10 12M10 12L19 3M10 12L19 8M10 12L19 12M10 12L19 16M10 12L19 21' stroke='%23000' stroke-width='1.1' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='12' r='0.9' fill='%23000'/%3E%3C/svg%3E");
-    -webkit-mask-size: contain;
-    mask-size: contain;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .page__hero--overlay .page__title,
-  .page__hero--overlay .page__lead,
-  .page__hero--overlay .page__hero-actions {
-    position: relative;
-    z-index: 1;
-  }
+.page__hero--overlay .page__title,
+.page__hero--overlay .page__lead,
+.page__hero--overlay .page__hero-actions {
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 768px) {
   .page__hero--overlay::after {
     display: none;
   }
+}
+
+/* Target Splash Feature Row Titles */
+.feature__wrapper .archive__item-title,
+.feature__item .archive__item-title {
+  font-size: var(--font-feature-title) !important;
+}
+
+/* Target Splash Feature Row Excerpts & Body Text */
+.feature__wrapper .archive__item-excerpt,
+.feature__item .archive__item-excerpt,
+.feature__item p {
+  font-size: var(--font-feature-body) !important;
+  line-height: 1.55;
 }
 
 /* ==========================================================================
@@ -340,53 +349,4 @@ $header-font-family: $global-font-family !default;
   background: var(--brand-primary);
   transform: translateY(-2px);
   color: #fff !important;
-}
-
-/* Contact page tiles */
-.contact-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1.25rem;
-  margin: 2rem 0;
-}
-
-.contact-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.75rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-decoration: none !important;
-  color: var(--text-primary) !important;
-  text-align: center;
-  transition: all 0.2s ease-in-out;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.contact-tile i {
-  margin-bottom: 0.75rem;
-  color: var(--brand-primary);
-  transition: color 0.2s ease-in-out, transform 0.2s ease-in-out;
-}
-
-.contact-tile span {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-
-.contact-tile:hover,
-.contact-tile:focus {
-  background: var(--surface-alt);
-  border-color: var(--brand-accent);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
-}
-
-.contact-tile:hover i,
-.contact-tile:focus i {
-  color: var(--brand-accent);
-  transform: scale(1.1);
 }
