@@ -357,7 +357,7 @@ Before comparing portfolio weights across paths, the optimization pipeline is ev
 
 ** 5.1 Optimizer Convergence
 
-The optimizer reports convergence status at each rebalance date. A successful optimization requires the solver to terminate normally while satisfying the portfolio constraints. Failed or materially infeasible solutions are retained in the diagnostic record rather than silently discarded.
+The optimizer reports convergence status at each rebalance date. A successful optimization requires the solver to terminate normally while satisfying the portfolio constraints. Covariance matrices are checked for positive semidefiniteness before optimization; a violation raises an exception rather than allowing an invalid matrix to enter the optimization. Failed or materially infeasible solutions are retained in the diagnostic record.
 
 #+begin_src jupyter-python :exports both :results output raw
 def summarize_diagnostics(df):
@@ -368,40 +368,38 @@ def summarize_diagnostics(df):
             "constraint_violations": df["constraint_violation"].sum(),
             "median_cond_number": df["cond_number"].median(),
             "max_cond_number": df["cond_number"].max(),
-            "min_obj_value": df["obj_value"].min(),
-            "median_obj_value": df["obj_value"].median(),
-            "max_obj_value": df["obj_value"].max(),
             "median_obj_improvement": df["obj_improvement"].median(),
             "median_n_iter": df['n_iter'].median(),
             "max_n_iter": df['n_iter'].max(),
         }
     )
 
-diagnostic_summary = pd.DataFrame(
-    {
-        "bootstrap_paths": summarize_diagnostics(diagnostics_df),
-        "realized_path": summarize_diagnostics(realized_diagnostics_df),
-    }
+per_path_summary = diagnostics_df.groupby("path_id").apply(
+    summarize_diagnostics, include_groups=False
+)
+per_path_summary.index = [f"path_{p}" for p in per_path_summary.index]
+
+diagnostic_summary = pd.concat(
+    [
+        per_path_summary,
+        summarize_diagnostics(realized_diagnostics_df).to_frame("realized_path").T,
+    ]
 )
 
-orgprint(diagnostic_summary)
+orgprint(diagnostic_summary.T)
 #+end_src
 
 #+RESULTS:
-#+begin_example
-| index                   |   bootstrap_paths |   realized_path |
-|-------------------------+-------------------+-----------------|
-| n_records               |    1080           |   108           |
-| success_rate            |       1           |     1           |
-| constraint_violations   |       0           |     0           |
-| median_cond_number      |      30.927       |    33.3867      |
-| max_cond_number         |     263.433       |   115.152       |
-| median_obj_value        |       0.170754    |     0.156517    |
-| median_obj_improvement  |      -0.386193    |    -0.446182    |
-| max_multi_init_obj_diff |       1.68865e-06 |     6.94644e-07 |
-| median_n_iter           |       8           |     8           |
-| max_n_iter              |      13           |    11           |
-#+end_example
+: | index                  |     path_0 |     path_1 |     path_2 |     path_3 |     path_4 |     path_5 |     path_6 |   path_7 |   path_8 |     path_9 |   realized_path |
+: |------------------------+------------+------------+------------+------------+------------+------------+------------+----------+----------+------------+-----------------|
+: | n_records              | 108        | 108        | 108        | 108        | 108        | 108        | 108        | 108      | 108      | 108        |      108        |
+: | success_rate           |   1        |   1        |   1        |   1        |   1        |   1        |   1        |   1      |   1      |   1        |        1        |
+: | constraint_violations  |   0        |   0        |   0        |   0        |   0        |   0        |   0        |   0      |   0      |   0        |        0        |
+: | median_cond_number     |  35.2876   |  28.4099   |  32.3972   |  25.1779   |  31.392    |  33.1379   |  28.6349   |  33.3713 |  33.5594 |  31.0024   |       33.3867   |
+: | max_cond_number        | 146.86     | 263.433    | 173.138    | 182.311    | 221.392    | 135.184    | 147.822    | 145.378  | 159.788  | 128.214    |      115.152    |
+: | median_obj_improvement |  -0.370168 |  -0.336495 |  -0.396881 |  -0.395062 |  -0.407093 |  -0.423392 |  -0.359974 |  -0.4097 |  -0.3884 |  -0.372183 |       -0.446182 |
+: | median_n_iter          |   8        |   8        |   8        |   8        |   8        |   8        |   8        |   8      |   8      |   8        |        8        |
+: | max_n_iter             |  11        |  12        |  12        |  13        |  11        |  10        |  11        |  11      |  10      |  10        |       11        |
 
 * Main Figure: Rolling Weight Dispersion
 

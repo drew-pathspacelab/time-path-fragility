@@ -9,8 +9,10 @@
 /* Typography */
 
 /* Base font size relative to browser default (100% = 16px).
-   Setting this to 87.5% (14px|10.5pt) scales down the entire site proportionately. */
-$doc-font-size: 90% !default;
+   Left at the theme default here because minimal-mistakes also scales this
+   up further at wider viewports (see the html { font-size: ... } override
+   below, which is the actual single source of truth for body text size). */
+$doc-font-size: 100% !default;
 
 /* Base font family (optional - if you want to customize fonts site-wide) */
 $global-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !default;
@@ -21,6 +23,23 @@ $header-font-family: $global-font-family !default;
    2. THEME IMPORT & SELECTOR OVERRIDES (AFTER IMPORT)
    ========================================================================== */
 @import "minimal-mistakes";
+
+/* Site-wide base font size — the ONE place to change body text size.
+   minimal-mistakes bumps html{font-size} again at wider viewports
+   (768px/1024px/1280px breakpoints), which compounds with $doc-font-size
+   above and makes the two hard to reason about together. This rule wins
+   at every breakpoint (it's !important and declared after the theme
+   import) so this single value is what actually renders everywhere,
+   regardless of screen width. Everything else (headings, .psl-card text,
+   nav, etc.) is sized in em/rem off of this.
+   Expressed as a % (of the browser's default/"medium" size) rather than
+   pt/px so it still honors a user's browser-level "default font size"
+   accessibility setting (distinct from page zoom, which works regardless
+   of unit) — 100% is the 16px/12pt browser default, held fixed at every
+   breakpoint instead of growing with viewport width. */
+html {
+  font-size: 110% !important;
+}
 
 /* Kill the pseudo-element underline bar (::before and ::after) */
 .greedy-nav a::before,
@@ -41,6 +60,7 @@ $header-font-family: $global-font-family !default;
 .masthead__menu-item a {
   color: var(--text-primary);
   opacity: 1;
+  font-size: 1.2em;
   text-decoration: none !important;
   border-bottom: none !important;
   box-shadow: none !important;
@@ -96,16 +116,21 @@ $header-font-family: $global-font-family !default;
   transition: background-color .18s ease, transform .18s ease;
 }
 
-/* Hover state for Site Title — color shift, no opacity dimming, so it
-   reads the same as every other hover on the page. */
+/* Hover state for Site Title — deliberately static. It's a wordmark, not
+   a nav link, so unlike every other item in .greedy-nav it should not
+   pill/lift/recolor on hover. Overrides the general ".greedy-nav a:hover"
+   rule above (higher specificity: two classes vs. one class + a tag), and
+   the ::before rule below cancels that same rule's mark scale/lift too. */
 .greedy-nav .site-title:hover {
   opacity: 1 !important;
-  color: var(--brand-accent) !important;
+  background-color: transparent !important;
+  color: var(--brand-primary) !important;
+  transform: none !important;
 }
 
 .greedy-nav .site-title:hover::before {
-  background-color: var(--brand-accent);
-  transform: translateY(-1px) scale(1.05);
+  background-color: var(--brand-primary);
+  transform: none;
 }
 
 /* Target the Hero Overlay Title */
@@ -248,14 +273,18 @@ $header-font-family: $global-font-family !default;
 
   --border: #{$border};
 
-  --success: #{$success};
-  --error: #{$error};
+  --success: #{$psl-success};
+  --error: #{$psl-error};
 
-  --font-hero-title: 2rem;
-  --font-hero-excerpt: 1rem;
+  /* Tuned against the fixed html{font-size} above, not the browser default —
+     bumped ~1.35x from their nominal rem values to land at roughly the same
+     px size the splash page had under the theme's old widest-breakpoint
+     root size (~19.8px), since that's the look these were designed against. */
+  --font-hero-title: 2.61rem;
+  --font-hero-excerpt: 1.28rem;
 
-  --font-feature-title: 1.35rem;
-  --font-feature-body: 1rem;
+  --font-feature-title: 1.75rem;
+  --font-feature-body: 1.28rem;
 }
 
 /* ==========================================================================
@@ -349,4 +378,69 @@ $header-font-family: $global-font-family !default;
   background: var(--brand-primary);
   transform: translateY(-2px);
   color: #fff !important;
+}
+
+/* Contact page link tiles (mail / GitHub / LinkedIn).
+   Icons are inline SVG via mask-image (same technique as the site-title
+   mark above) rather than the Font Awesome webfont: the FA CDN is pinned
+   to @latest, un-sized, and renders each glyph at whatever weight that
+   particular icon happens to ship at, which is why they previously looked
+   inconsistent across browsers and "cartoon-y" next to each other. A
+   fixed-size mask gives every icon the same visual weight and renders
+   identically everywhere, with no external request. */
+.contact-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.contact-tile {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .75rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.contact-tile:hover,
+.contact-tile:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08);
+  border-color: var(--brand-accent);
+  color: var(--brand-accent) !important;
+}
+
+.contact-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.contact-icon--mail {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='M2 6l10 7L22 6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='M2 6l10 7L22 6'/%3E%3C/svg%3E");
+}
+
+.contact-icon--github {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z'/%3E%3C/svg%3E");
+}
+
+.contact-icon--linkedin {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.5 3h-11A1.5 1.5 0 0 0 1 4.5v11A1.5 1.5 0 0 0 2.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 3zM6 14H4V7h2v7zM5 6.25A1.25 1.25 0 1 1 5 3.75a1.25 1.25 0 0 1 0 2.5zM15 14h-2v-3.5c0-.83-.02-1.9-1.16-1.9-1.16 0-1.34.9-1.34 1.84V14H8V7h1.92v.96h.03c.27-.5.92-1.03 1.9-1.03 2.03 0 2.15 1.34 2.15 3.08V14z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.5 3h-11A1.5 1.5 0 0 0 1 4.5v11A1.5 1.5 0 0 0 2.5 17h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 3zM6 14H4V7h2v7zM5 6.25A1.25 1.25 0 1 1 5 3.75a1.25 1.25 0 0 1 0 2.5zM15 14h-2v-3.5c0-.83-.02-1.9-1.16-1.9-1.16 0-1.34.9-1.34 1.84V14H8V7h1.92v.96h.03c.27-.5.92-1.03 1.9-1.03 2.03 0 2.15 1.34 2.15 3.08V14z'/%3E%3C/svg%3E");
 }

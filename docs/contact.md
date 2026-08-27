@@ -12,15 +12,15 @@ author_profile: false
 
 <div class="contact-tiles">
   <a href="mailto:drew@pathspacelab.org" class="contact-tile">
-    <i class="fas fa-envelope-open-text fa-2x"></i>
+    <span class="contact-icon contact-icon--mail"></span>
     <span>Mail</span>
   </a>
   <a href="https://github.com/drew-pathspacelab" class="contact-tile" target="_blank" rel="noopener noreferrer">
-    <i class="fab fa-github fa-2x"></i>
+    <span class="contact-icon contact-icon--github"></span>
     <span>GitHub</span>
   </a>
   <a href="https://linkedin.com/in/drewtilley" class="contact-tile" target="_blank" rel="noopener noreferrer">
-    <i class="fab fa-linkedin fa-2x"></i>
+    <span class="contact-icon contact-icon--linkedin"></span>
     <span>LinkedIn</span>
   </a>
 </div>

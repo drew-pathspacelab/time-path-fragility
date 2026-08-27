@@ -8,7 +8,7 @@ header:
   overlay_filter: 0.05
   actions:
   - label: "Read the Research"
-    url: /artifact_01_spec.html
+    url: /research/
     btn_class: "btn--primary"
   - label: "Read the Essay"
     url: /writing/beyond-the-realized-path/
@@ -19,7 +19,7 @@ intro:
 
 {% include feature_row id="intro" type="center" %}
 
-Many analysis begins with a single realized history. Markets, experiments, and complex systems each leave behind one path through time, yet many other paths were possible.
+Many analyses begin with a single realized history. Markets, experiments, and complex systems each leave behind one path through time, yet many other paths were possible.
 
 By generating and studying plausible alternatives, we can ask different questions:
 
@@ -57,7 +57,7 @@ How much of what we believe depends on the single history we happened to observe
 
 Is a minimum-variance portfolio stable under alternative realizations of the same market history?
 
-[Read →](/artifact_01_spec.html){: .psl-card-link } [Notebook →](/artifact_01_spec.html){: .psl-card-link }
+[Read →](/research/){: .psl-card-link }
 
 </div>
 
@@ -111,6 +111,6 @@ Pathspace Lab is an ongoing attempt to explore that question through simulation,
 
 If these questions interest you, I'd welcome the opportunity to connect, collaborate, or simply exchange ideas.
 
-[About →](/perturbations.html){: .psl-card-link } &nbsp;&nbsp; [Contact →](/contact.html){: .psl-card-link }
+[About →](/about/){: .psl-card-link } &nbsp;&nbsp; [Contact →](/contact.html){: .psl-card-link }
 
 </section>

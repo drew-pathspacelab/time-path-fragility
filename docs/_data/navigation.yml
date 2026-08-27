@@ -2,12 +2,12 @@ main:
   - title: "Home"
     url: /
   - title: "Research"
-    url: /artifact_01_spec.html
+    url: /research/
   - title: "Projects"
-    url: /data_schema.html
+    url: /projects/
   - title: "Writing"
-    url: /writing/beyond-the-realized-path/
+    url: /writing/
   - title: "About"
-    url: /perturbations.html
+    url: /about/
   - title: "Contact"
     url: /contact.html
