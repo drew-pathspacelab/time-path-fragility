@@ -11,7 +11,7 @@ header:
     url: /research/
     btn_class: "btn--primary"
   - label: "Read the Essay"
-    url: /writing/beyond-the-realized-path/
+    url: /writing/
     btn_class: "btn--primary"
 intro:
   - title: "Why simulate alternative paths?"
@@ -57,7 +57,7 @@ How much of what we believe depends on the single history we happened to observe
 
 Is a minimum-variance portfolio stable under alternative realizations of the same market history?
 
-[Read →](/research/){: .psl-card-link }
+[Read →](/research/artifact-01/){: .psl-card-link }
 
 </div>
 

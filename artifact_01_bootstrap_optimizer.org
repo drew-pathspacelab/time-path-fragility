@@ -1,5 +1,5 @@
-#+TITLE: Artifact 01 - Bootstrap Path Fragility And Portfolio Weights
-#+AUTHOR: Drew
+#+TITLE: Artifact 01 — Ensemble Weight Stability and the Realized Path
+#+AUTHOR: Drew Tilley
 #+OPTIONS: toc:2 num:nil html-style:nil
 #+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :dir (projectile-project-root) :mkdirp yes
 
@@ -37,7 +37,22 @@ The asset universe consists of a small set of large-cap U.S. equities selected t
 
 Each alternative history is generated using a moving block bootstrap with ten resampled paths and a block length of twenty-one trading days (approximately one month). This preserves short-term temporal dependence within each block while producing alternative long-run orderings of the observed market history.
 
-# TODO: Table with assets and factors
+#+CAPTION: Universe Assets and Factors
+#+NAME: tbl:universe
+| Assets | Factors |
+|--------+---------|
+|  <c>   |   <c>   |
+|  AAPL  |   XLB   |
+|  MSFT  |   XLE   |
+|  NVDA  |   XLF   |
+|  META  |   XLI   |
+|  JPM   |   XLK   |
+|  CAT   |   XLP   |
+|  XOM   |   XLU   |
+|  JNJ   |   XLV   |
+|   PG   |   XLY   |
+|   KO   |  XLRE   |
+|  AMT   |         |
 
 Risk estimates are computed from rolling 252-trading-day windows and the portfolio is rebalanced every twenty-one trading days. Covariance matrices are constructed from the estimated factor model using a fixed shrinkage parameter of 0.10 before solving a long-only minimum-variance optimization at each rebalance date.
 
@@ -210,7 +225,7 @@ The optimization is repeated independently for every rebalance date and every al
 
 The resulting weights are recorded alongside optimizer diagnostics, including convergence status and the estimated portfolio variance. These diagnostics are used later to distinguish differences in portfolio weights arising from the alternative paths from potential numerical failures in the optimization itself.
 
-#+begin_src jupyter-python :exports code :results output raw
+#+begin_src jupyter-python :exports both :results output raw
 from src.optimizer import optimize
 
 """Compute the optimal weights for the demonstrative covariance matrix from above."""
@@ -247,9 +262,9 @@ orgprint(weights_df)
 | XOM     | 15.73%   |
 #+end_example
 
-** 4.4 Full Pipeline and Helper Functions
+*** Full Pipeline and Helper Functions
 
-The optimization is repeated independently for every rebalance date and every alternative path. The realized history is processed using the same procedure, providing a reference trajectory against which the bootstrap portfolios can be compared. The resulting weights are recorded alongside optimizer diagnostics, including convergence status and the estimated portfolio variance.
+The construction of the full risk estimate and optimization pipline is assembled below in a helper funtion. The helper function performs the analysis described above to both the bootstrap paths as well as the realized path.
 
 #+begin_src jupyter-python :exports code :results none
 from src.optimizer.diagnostics import DiagnosticsTracker
@@ -370,7 +385,6 @@ def summarize_diagnostics(df):
             "max_cond_number": df["cond_number"].max(),
             "median_obj_improvement": df["obj_improvement"].median(),
             "median_n_iter": df['n_iter'].median(),
-            "max_n_iter": df['n_iter'].max(),
         }
     )
 
@@ -386,28 +400,33 @@ diagnostic_summary = pd.concat(
     ]
 )
 
-orgprint(diagnostic_summary.T)
+orgprint(diagnostic_summary)
 #+end_src
 
 #+RESULTS:
-: | index                  |     path_0 |     path_1 |     path_2 |     path_3 |     path_4 |     path_5 |     path_6 |   path_7 |   path_8 |     path_9 |   realized_path |
-: |------------------------+------------+------------+------------+------------+------------+------------+------------+----------+----------+------------+-----------------|
-: | n_records              | 108        | 108        | 108        | 108        | 108        | 108        | 108        | 108      | 108      | 108        |      108        |
-: | success_rate           |   1        |   1        |   1        |   1        |   1        |   1        |   1        |   1      |   1      |   1        |        1        |
-: | constraint_violations  |   0        |   0        |   0        |   0        |   0        |   0        |   0        |   0      |   0      |   0        |        0        |
-: | median_cond_number     |  35.2876   |  28.4099   |  32.3972   |  25.1779   |  31.392    |  33.1379   |  28.6349   |  33.3713 |  33.5594 |  31.0024   |       33.3867   |
-: | max_cond_number        | 146.86     | 263.433    | 173.138    | 182.311    | 221.392    | 135.184    | 147.822    | 145.378  | 159.788  | 128.214    |      115.152    |
-: | median_obj_improvement |  -0.370168 |  -0.336495 |  -0.396881 |  -0.395062 |  -0.407093 |  -0.423392 |  -0.359974 |  -0.4097 |  -0.3884 |  -0.372183 |       -0.446182 |
-: | median_n_iter          |   8        |   8        |   8        |   8        |   8        |   8        |   8        |   8      |   8      |   8        |        8        |
-: | max_n_iter             |  11        |  12        |  12        |  13        |  11        |  10        |  11        |  11      |  10      |  10        |       11        |
+#+begin_example
+| index         |   n_records |   success_rate |   constraint_violations |   median_cond_number |   max_cond_number |   median_obj_improvement |   median_n_iter |
+|---------------+-------------+----------------+-------------------------+----------------------+-------------------+--------------------------+-----------------|
+| path_0        |         108 |              1 |                       0 |              35.2876 |           146.86  |                -0.370168 |               8 |
+| path_1        |         108 |              1 |                       0 |              28.4099 |           263.433 |                -0.336495 |               8 |
+| path_2        |         108 |              1 |                       0 |              32.3972 |           173.138 |                -0.396881 |               8 |
+| path_3        |         108 |              1 |                       0 |              25.1779 |           182.311 |                -0.395062 |               8 |
+| path_4        |         108 |              1 |                       0 |              31.392  |           221.392 |                -0.407093 |               8 |
+| path_5        |         108 |              1 |                       0 |              33.1379 |           135.184 |                -0.423392 |               8 |
+| path_6        |         108 |              1 |                       0 |              28.6349 |           147.822 |                -0.359974 |               8 |
+| path_7        |         108 |              1 |                       0 |              33.3713 |           145.378 |                -0.4097   |               8 |
+| path_8        |         108 |              1 |                       0 |              33.5594 |           159.788 |                -0.3884   |               8 |
+| path_9        |         108 |              1 |                       0 |              31.0024 |           128.214 |                -0.372183 |               8 |
+| realized_path |         108 |              1 |                       0 |              33.3867 |           115.152 |                -0.446182 |               8 |
+#+end_example
 
-* Main Figure: Rolling Weight Dispersion
+* 6. Rolling Weight Dispersion
 
-The figure below plots the median rolling weight across bootstrap paths and a
-10th-90th percentile band. The dashed black line is the realized-path rolling
-weight. The selected assets are the six largest realized-path average weights,
-which makes it easier to see whether the realized allocation emphasis sits
-inside or outside the bootstrap distribution.
+** 6.1 Distribution of Optimized Portfolio Weights
+
+The figure below shows the distribution of portfolio weights across the bootstrap paths through time. For each asset, the solid line represents the median weight across bootstrap paths and the shaded region spans the 10th–90th percentile range. The dashed black line shows the corresponding weight along the realized path.
+
+To keep the figure interpretable, the plot shows the six assets with the largest average weights on the realized path. This selection is based only on the realized-path allocation and is fixed before comparing the bootstrap paths. The figure therefore focuses on the assets that contribute most to the realized portfolio while allowing their allocation to be compared directly with the distribution produced by alternative histories.
 
 #+begin_src jupyter-python :exports code :results none
 rolling_std_by_time = rolling_weights_df.groupby(level="time").std()
@@ -470,10 +489,16 @@ axes[-1].set_xlabel("Rebalance Date")
 plt.tight_layout()
 #+end_src
 
-* Secondary Figure: Cross-Path Weight Standard Deviation
+#+RESULTS:
+[[file:notebooks/figures/artifact01_rolling_weight_bands.png]]
 
-The percentile-band plot shows allocation levels. The standard-deviation plot
-shows when the optimizer is most path-sensitive.
+** 6.2 Cross-Path Weight Dispersion
+
+The previous figure shows how the realized-path allocation compares with the distribution of allocations produced by alternative paths. The figure below summarizes the dispersion of those alternative allocations by plotting the cross-path standard deviation of each asset's portfolio weight through time.
+
+At each rebalance date, the standard deviation is calculated across the bootstrap paths. Larger values indicate that the optimization produces more dispersed allocations when applied to different temporal arrangements of the same historical observations. The measure therefore provides a simple time-varying indicator of the portfolio's sensitivity to path realization.
+
+The figure uses the same six assets selected for the previous plot. The realized path is not included in this calculation; the standard deviation describes dispersion within the bootstrap ensemble itself.
 
 #+begin_src jupyter-python :file notebooks/figures/artifact01_rolling_weight_std.png :exports both :results graphics file
 fig, ax = plt.subplots(figsize=(12, 6))
@@ -485,13 +510,16 @@ ax.legend(title="Asset", loc="upper left", bbox_to_anchor=(1.02, 1.0))
 plt.tight_layout()
 #+end_src
 
-* Portfolio Cumulative Return Dispersion
+#+RESULTS:
+[[file:notebooks/figures/artifact01_rolling_weight_std.png]]
 
-This figure applies the rolling optimized weights to each path's subsequent
-returns. Asset returns are stored as log returns, so the helper converts them
-to simple returns before aggregating across assets and compounding the
-portfolio return. Weights are shifted forward one trading day so a rebalance
-estimated with data through date \(t\) is applied starting after date \(t\).
+* 7. Portfolio Cumulative Return Dispersion
+
+The preceding figures examined the portfolio weights directly. The final figure asks whether differences in those weights translate into materially different portfolio trajectories.
+
+For each path, the optimized weights at a rebalance date are applied to the subsequent return period until the next rebalance. The implementation uses the first subsequent trading day as the beginning of the holding period. This is a simplified execution convention: it treats the portfolio as fully rebalanced before /that/ day's return is realized, rather than modeling the timing and price impact of placing orders around the rebalance.
+
+The figure shows cumulative portfolio returns for the realized path and the bootstrap paths. Differences between the trajectories arise from the different portfolio weights produced by the optimization under each alternative history. The purpose is not to evaluate the portfolios as investment strategies, but to illustrate the portfolio-level consequences of the path-dependent allocations observed in the preceding sections.
 
 #+begin_src jupyter-python :exports code :results none
 def cumulative_portfolio_return_from_weights(returns_da, weights_df):
@@ -533,25 +561,25 @@ realized_cumulative_return = realized_cumulative_return.reindex(common_return_in
 #+end_src
 
 #+begin_src jupyter-python :file notebooks/figures/artifact01_portfolio_cumulative_return_dispersion.png :exports both :results graphics file
+bootstrap_color = plt.rcParams["axes.prop_cycle"].by_key()["color"][2]
 median_return = bootstrap_cumulative_returns_df.median(axis=1)
-p10_return = bootstrap_cumulative_returns_df.quantile(0.10, axis=1)
-p90_return = bootstrap_cumulative_returns_df.quantile(0.90, axis=1)
 
 fig, ax = plt.subplots(figsize=(12, 6))
+for i, path_id in enumerate(bootstrap_cumulative_returns_df.columns):
+    ax.plot(
+        bootstrap_cumulative_returns_df.index,
+        bootstrap_cumulative_returns_df[path_id].values,
+        color=bootstrap_color,
+        alpha=0.3,
+        linewidth=1.0,
+        label="Bootstrap paths" if i == 0 else None,
+    )
 ax.plot(
     median_return.index,
     median_return.values,
-    color="steelblue",
+    color=bootstrap_color,
     linewidth=2.0,
     label="Bootstrap median",
-)
-ax.fill_between(
-    median_return.index,
-    p10_return.values,
-    p90_return.values,
-    color="steelblue",
-    alpha=0.25,
-    label="Bootstrap 10th-90th percentile",
 )
 ax.plot(
     realized_cumulative_return.index,
@@ -569,17 +597,29 @@ ax.legend(loc="best")
 plt.tight_layout()
 #+end_src
 
-* Interpretation Notes
+#+RESULTS:
+[[file:notebooks/figures/artifact01_portfolio_cumulative_return_dispersion.png]]
 
-Read this artifact in the following order:
+* 8. Discussion
 
-- first confirm the diagnostics gate has a high success rate and no repeated
-  constraint violations
-- then inspect whether the realized weight lines sit inside or outside the
-  bootstrap percentile bands
-- finally compare the timing of wide percentile bands with spikes in
-  cross-path standard deviation and cumulative-return dispersion
+** 8.1 Ensemble Stability, Realized-Path Deviation
 
-If the rolling bands are narrow, the optimizer is stable under this bootstrap
-design. If bands widen at specific dates or for specific assets, those are good
-candidate periods for deeper decomposition and diagnostics in the lab notebook.
+This artifact asks whether a minimum-variance portfolio is a property of the market's risk structure or an artifact of the particular order in which history happened to unfold. The bootstrap ensemble separates the two: it holds the observed data fixed and only reorders it, so an allocation that survives across the ensemble reflects the covariance structure itself, not the sequence of events that produced it.
+
+Across the ensemble, the allocation is more stable than a single-path view would suggest. The bootstrap median weight stays roughly flat through the sample for each of the six largest holdings — XOM near 10%, JPM and AMT near 5%, and JNJ, KO, and PG all in the 20–23% range — even though every bootstrap path is a different reordering of the same ten years of returns. If the optimizer's output were highly sensitive to sequencing, the median across paths would itself drift as rebalance dates moved through the sample. It largely doesn't.
+
+The realized path tracks the bootstrap median at first, but breaks away starting around Q3 2021, and by the end of the sample its cumulative return has settled near the 10th percentile of the bootstrap distribution — one of the worse outcomes in the ensemble.
+
+This suggests the covariance structure driving the minimum-variance weights is less path-dependent than the cumulative-return outcome a single backtest reports. The optimization itself isn't unstable — the ensemble median shows the underlying risk structure holding up fairly well across orderings. What's brittle is the assumption that the one path we observed is representative of that structure: the realized history landed in the tail of its own ensemble. The adverse orderings weren't hypothetical; they were always latent in the same ten years of data — we just weren't looking at them, because a backtest by construction only ever shows the one sequence that happened. Much like tracking a single particle tells you less about the ensemble's behavior than tracking the ensemble tells you about any one particle.
+
+The two dispersion measures don't rank the assets identically. JNJ has the tightest percentile band relative to its own weight level, but one of the larger absolute cross-path standard deviations (~0.075, alongside KO), while JPM, XOM, and AMT are more stable in absolute terms (~0.025–0.06) despite smaller allocations. Some of that is just scale — a 20% average weight has more room to move in absolute terms than a 5% one. That's a measurement question for a future pass, not a limitation of the finding itself.
+
+** 8.2 Limitations
+
+Ten bootstrap paths is enough to see a band, not resolve a distribution — the reported 10th/90th percentiles are close to the sample extremes and would sharpen with more paths. The 21-day block length is a modeling choice, not a market fact, and trades off temporal realism against path dispersion differently at other lengths. And the procedure is held fixed throughout, so this can't yet say whether the realized path's lagging outcome traces to the factor decomposition, the covariance shrinkage, or the optimizer.
+
+** 8.3 Next Steps
+
+This artifact isolated the effect of path reordering on portfolio weights while holding the estimation procedure fixed. A natural next question is whether the same stability holds one layer upstream, in the rolling factor exposures that feed the covariance matrix. OLS estimates within a rolling window are disproportionately influenced by a small number of extreme observations, and which days fall within a given window depends on how the history happens to be ordered. If a handful of large return days are driving the path's beta estimates, the covariance structure — and downstream, the weights — would inherit that sensitivity even though the optimization itself is behaving correctly.
+
+The next artifact addresses this directly by comparing OLS and Huber-regression beta estimates across the same bootstrap ensemble used here. Huber regression downweights high-leverage observations rather than fitting them exactly, so if beta stability improves materially under Huber relative to OLS, that would localize the realized path's tail outcome to estimator sensitivity rather than to the covariance structure itself. Alongside this, the artifact will compare a short-window OLS beta to an exponentially-weighted beta matched to the same effective window length — both discount older data relative to the full 252-day window, but only the EWMA does so smoothly, so the comparison separates the effect of recency weighting from the effect of robust downweighting. Together, the three estimators (OLS, Huber, EWMA) give a way to attribute whatever path sensitivity remains to a specific modeling choice rather than treating "the factor decomposition" as a single undifferentiated source.

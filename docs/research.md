@@ -16,7 +16,7 @@ Research artifacts exploring path dependence, uncertainty, and fragility &mdash;
 
 Is a minimum-variance portfolio stable under alternative, model-consistent realizations of the same market history?
 
-*Write-up in progress &mdash; check back soon.*
+[Read →](/research/artifact-01/){: .psl-card-link }
 
 </div>
 

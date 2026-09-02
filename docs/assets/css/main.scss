@@ -380,6 +380,14 @@ html {
   color: #fff !important;
 }
 
+/* Compact reference tables (e.g. parameter/config tables in artifact
+   write-ups). The theme forces table { width: 100% }, which leaves a wide
+   empty gutter next to a table that's only 2-3 columns of short values. */
+.psl-compact-table {
+  width: auto !important;
+  display: table !important;
+}
+
 /* Contact page link tiles (mail / GitHub / LinkedIn).
    Icons are inline SVG via mask-image (same technique as the site-title
    mark above) rather than the Font Awesome webfont: the FA CDN is pinned

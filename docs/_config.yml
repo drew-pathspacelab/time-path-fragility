@@ -3,6 +3,9 @@ remote_theme: "mmistakes/minimal-mistakes"
 minimal_mistakes_skin: "pathspace"
 markdown: kramdown
 
+kramdown:
+  math_engine: mathjax
+
 plugins:
   - jekyll-include-cache
   - jekyll-remote-theme
@@ -14,7 +17,7 @@ defaults:
       path: ""
     values:
       layout: single
-      author_profile: true
+      author_profile: False
       author: drew_profile
 
 exclude:
