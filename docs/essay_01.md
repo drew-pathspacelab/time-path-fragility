@@ -93,7 +93,7 @@ A fragile conclusion is still a conclusion. Discovering where a model is sensiti
 
 This perspective naturally shifts the emphasis of analysis. Rather than searching for the single &ldquo;best&rdquo; model, we can begin asking which models are robust, which assumptions matter most, and how uncertainty propagates through every stage of the modeling process.
 
-Inference produces probabilities of conclusions. Pathspace asks how those conclusions change when history does.
+Inference produces conclusions about probability. Pathspace asks how those conclusions change when history does.
 
 
 ## 5. Why Pathspace?
