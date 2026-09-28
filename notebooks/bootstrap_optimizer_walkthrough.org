@@ -188,7 +188,7 @@ mu_factor = compute_mu(
 cov_hist = compute_cov(
     asset_path_da,
     factor_returns=factor_path_da,
-    method="hist",
+    method="sample",
     shrinkage=0.0,
     shrinkage_target="diagonal",
 )
@@ -219,7 +219,7 @@ print(tabulate(mu_factor, headers=['asset', 'log(r)'], tablefmt='orgtbl', showin
 ** Calculate the Sample Min-Variance Optimized Weights for Path:0
 
 The covariance estimation method for this optimization is 'factor_model' which
-can be compared with the direct asset-to-asset covariance estimation ('hist').
+can be compared with the direct asset-to-asset covariance estimation ('sample').
 
 #+begin_src jupyter-python :exports both :results output raw
 factor_wts = optimize(

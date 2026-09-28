@@ -26,8 +26,8 @@ class TestClassicOptimizerSmoke(unittest.TestCase):
         )
 
     def test_functional_api_computes_mu_cov_and_weights(self):
-        mu = compute_mu(self.returns_df, method="hist")
-        cov = compute_cov(self.returns_df, method="hist", shrinkage=0.1)
+        mu = compute_mu(self.returns_df, method="sample")
+        cov = compute_cov(self.returns_df, method="sample", shrinkage=0.1)
         weights = optimize(cov=cov, mu=mu, objective="min_variance", long_only=True)
 
         self.assertListEqual(list(mu.index), self.tickers)
@@ -95,8 +95,8 @@ class TestClassicOptimizerSmoke(unittest.TestCase):
 
     def test_portfolio_optimizer_wrapper_fits(self):
         optimizer = PortfolioOptimizer(
-            mean_method="hist",
-            cov_method="hist",
+            mean_method="sample",
+            cov_method="sample",
             cov_shrinkage=0.1,
             objective="min_variance",
             long_only=True,

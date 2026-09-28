@@ -8,7 +8,7 @@ import pandas as pd
 import xarray as xr
 
 from src.viz.risk_plots import (
-    plot_rolling_beta_alpha_timeseries,
+    plot_rolling_beta_timeseries,
     plot_rolling_return_decomposition,
 )
 
@@ -65,8 +65,8 @@ class TestRiskPlots(unittest.TestCase):
     def tearDown(self):
         plt.close("all")
 
-    def test_plot_rolling_beta_alpha_timeseries_plots_selected_factors_and_alpha(self):
-        ax = plot_rolling_beta_alpha_timeseries(
+    def test_plot_rolling_beta_timeseries_plots_selected_factors_and_alpha(self):
+        ax = plot_rolling_beta_timeseries(
             self.forward_ds,
             "A",
             factors=["MKT"],
@@ -77,7 +77,7 @@ class TestRiskPlots(unittest.TestCase):
 
         self.assertIn("Beta: MKT", labels)
         self.assertIn("Alpha (annualized)", labels)
-        self.assertEqual(ax.get_title(), "Rolling Beta and Alpha: A")
+        self.assertEqual(ax.get_title(), "Rolling Beta: A")
         self.assertEqual(len(ax.lines), 3)
 
     def test_plot_rolling_return_decomposition_plots_components(self):

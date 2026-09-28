@@ -360,11 +360,15 @@ class PortfolioOptimizer(BaseEstimator):
 
     def __init__(
         self,
-        mean_method: str = "hist",
+        mean_method: str = "sample",
+        mean_weighting: str | None = None,
+        mean_span: float | None = None,
         mean_halflife: float | None = None,
         mean_shrinkage: float = 0.0,
         mean_shrinkage_target: str = "grand_mean",
-        cov_method: str = "hist",
+        cov_method: str = "sample",
+        cov_weighting: str | None = None,
+        cov_span: float | None = None,
         cov_halflife: float | None = None,
         cov_shrinkage: float = 0.0,
         cov_shrinkage_target: str = "diagonal",
@@ -382,10 +386,14 @@ class PortfolioOptimizer(BaseEstimator):
         min_weight: float | None = None,
     ):
         self.mean_method = mean_method
+        self.mean_weighting = mean_weighting
+        self.mean_span = mean_span
         self.mean_halflife = mean_halflife
         self.mean_shrinkage = mean_shrinkage
         self.mean_shrinkage_target = mean_shrinkage_target
         self.cov_method = cov_method
+        self.cov_weighting = cov_weighting
+        self.cov_span = cov_span
         self.cov_halflife = cov_halflife
         self.cov_shrinkage = cov_shrinkage
         self.cov_shrinkage_target = cov_shrinkage_target
@@ -405,6 +413,8 @@ class PortfolioOptimizer(BaseEstimator):
     def fit(self, X, y=None):
         self.mean_estimator_ = MeanEstimator(
             method=self.mean_method,
+            weighting=self.mean_weighting,
+            span=self.mean_span,
             halflife=self.mean_halflife,
             shrinkage=self.mean_shrinkage,
             shrinkage_target=self.mean_shrinkage_target,
@@ -413,6 +423,8 @@ class PortfolioOptimizer(BaseEstimator):
 
         self.cov_estimator_ = CovarianceEstimator(
             method=self.cov_method,
+            weighting=self.cov_weighting,
+            span=self.cov_span,
             halflife=self.cov_halflife,
             shrinkage=self.cov_shrinkage,
             shrinkage_target=self.cov_shrinkage_target,
@@ -440,6 +452,15 @@ class PortfolioOptimizer(BaseEstimator):
 
     def get_weights(self) -> pd.Series:
         return self.weights_.copy()
+
+
+def _classic_method(method: str) -> tuple[str, str | None]:
+    """Map legacy method names ("hist", "ewma*") onto (method, weighting)."""
+    if method.startswith("ewma"):
+        return "sample", "ewma"
+    if method == "hist":
+        return "sample", "equal"
+    return method, None
 
 
 class ClassicOptimizer(PortfolioOptimizer):
@@ -471,11 +492,16 @@ class ClassicOptimizer(PortfolioOptimizer):
             unused = ", ".join(sorted(kwargs))
             raise ValueError(f"Unsupported ClassicOptimizer kwargs: {unused}")
 
+        mean_method, mean_weighting = _classic_method(method_mu)
+        cov_method, cov_weighting = _classic_method(method_cov)
+
         super().__init__(
-            mean_method="ewma" if method_mu.startswith("ewma") else method_mu,
+            mean_method=mean_method,
+            mean_weighting=mean_weighting,
             mean_halflife=ewma_mu_halflife,
             mean_shrinkage=mu_shrinkage,
-            cov_method="ewma" if method_cov.startswith("ewma") else method_cov,
+            cov_method=cov_method,
+            cov_weighting=cov_weighting,
             cov_halflife=ewma_cov_halflife,
             cov_shrinkage=cov_shrinkage,
             objective=obj,
