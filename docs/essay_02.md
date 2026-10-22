@@ -1,0 +1,124 @@
+---
+layout: single
+title: "Walking in the Dark"
+excerpt: "A risk model has memory but no sense of time. Moving it onto a dark hillside asks what it should remember, and how hard it should flinch when the ground surprises it."
+permalink: /writing/walking-in-the-dark/
+author: drew_profile
+author_profile: true
+---
+
+Welcome to Pathspace Lab's series exploring path dependence. Questions are always welcome at <https://pathspacelab.org/>.
+
+## 1. Current Footing
+
+In [Beyond the Realized Path](/writing/beyond-the-realized-path/) I argued that markets behave like complex systems, and that risk models fit only to the realized path are easy to over-trust. It is easy to fall into a narrative trap when we fail to look sideways.
+
+In [Ensemble Weight Stability and the Realized Path](/research/artifact-01/) I built an ensemble of alternative histories by block-bootstrapping 21-day pieces of the same ten years, then ran a rolling minimum-variance optimizer along each one. The weights held up, which is reassuring and expected if ergodicity holds. The ensemble revealed a persistent risk structure underneath the randomness, and at the level of allocations the realized path looks like just another member of the ensemble. Cumulative returns were a different story: the realized path finished near the 10th percentile of its own ensemble. Path dependence shows up far more strongly in outcomes than in allocations.
+
+At the end of that artifact I wanted to explore two changes to the regression underneath everything: one that is less sensitive to the extremes path randomness throws at it, and one that weights recent days more heavily. This essay is about why.
+
+## 2. How Does a Model Experience Time?
+
+As humans we experience time on different scales, and our brains (nearly) autonomously log our experiences in some form of memory. If we took humans as our complex system of study, we would have to establish rules about what counts as short-term memory, long-term memory, and real-time input. All of those inputs, past and present, also have to be processed and ranked by priority. Our brains weigh memories against real-time sensory input, then direct us toward a set of possible actions, each with some probability.
+
+Now let's consider a financial market as our complex system of study. Markets show signs of memory on more than one scale. Calm days tend to follow calm days, and turbulent days follow turbulent ones, so volatility arrives in clusters. Slower relationships drift too: in Artifact 01 (Figure 2), AAPL's technology exposure drifts down over the decade until it sits near its consumer discretionary and financials exposures.
+
+The market's "memory" is stored as a structured randomness between asset returns and factor returns. Yet in Artifact 01, the model on each time path looked back over 252 trading days without any distinction between recent and distant observations. From a risk perspective, it should be advantageous to give our models at least some perception of time, *if* we assume that short- and long-term market memory actually influence how markets move.
+
+That previous assumption is intriguing when applied to paths in our bootstrap ensemble. Recall that the bootstrap paths were built by stitching 21-day blocks together at random, so within each path the market's long-term memory is scrambled and even its short-term memory is disturbed at every seam. From outside the simulation, we know exactly where the seams are. *But if we looked purely at the model outputs, would we be able to tell whether the simulation ran on the realized path or a bootstrap path?*
+
+Model outputs are destined to become numbers streaming across screens. Even piped into a dashboard, they're easily forgotten and require laborious searching for signals. Worse, three different experiences of time get conflated: our own, the market's, and the model's, a 252-day memory in which last year and yesterday count the same. Just as our own memories and feelings distort our sense of when things happened, staring at the numbers leaves us disoriented about what the model actually 'knows' at any moment.
+
+## 3. The Hiker in the Dark
+
+We need a way to stand where the model stands. Time is hard to think about directly. Space is more intuitive: we orient ourselves easily, we can repeat spatial experiments, and we notice right away when we've been turned around.
+
+That last point matters more than it seems. In human physiology, the vestibular system provides real-time gravitational, linear, and angular orientation, and when our brains receive vestibular signals that contradict our visual ones, we feel nauseous. Severe spatial disorientation is debilitating, but it announces itself, and it usually fades once the conflicting signals stop.
+
+Disorientation in time is stranger, because correcting it requires realigning the body's internal clock with external cues like daylight and mealtimes. People whose internal clock is out of step appear normal. Nearly the entire US population (Arizona and Hawaii excepted) is disoriented together twice a year when the clocks change for daylight saving time. After the spring change, which costs an hour of sleep, our self-imposed mass time distortion makes people prone to mistakes and doing things at odd times, sometimes with severe consequences: car accidents and workplace injuries tick up.
+
+Our risk model is a crude stand-in for a human responding to a complex environment and its idiosyncratic randomness. The model has memory-like information and a very simple processor in the form of the optimizer. It has no vestibular system and no internal clock to fall out of sync, nothing to make it queasy when the ground shifts. If our model is disoriented, it will look perfectly normal. So let's give it a body we can feel through, and move it out of a path through time and onto a path through space, keeping the rules of the original problem intact.
+
+Imagine a hiker lost in a forest on the night of a new moon. Our hiker friend represents our model, so they're subject to some funny conditions that come from translating the time-path problem into their world. They have no light, and no matter how far their pupils dilate as they stare into the blackness, there is nothing to see. They are also barefoot, barehanded, and suffering from a peculiar amnesia: they remember the last mile they walked in vivid detail, and nothing before it.
+
+There is no trail. Nobody has crossed this ground before and marked a passable way through it. The only path behind our hiker is the one they forged themselves, which is what a realized path is: one route through ground that could have been crossed many other ways.
+
+Morning isn't coming, either. In our transformed world, the night doesn't end. It's cold, they have no water, and staying put is its own danger. To survive, our hiker has to keep moving.
+
+We aren't completely absent from our hiker's adventure, and I'll take the humane view that we care how it turns out. So let's grant them a Promethean gift. Fire is off the table, since light would let them see the next step, and the model never sees tomorrow. Instead, let's give our hero an enhanced sense of touch in their soles, palms, and fingers, like a raccoon's. Nature has already worked on this exact problem: raccoons forage at night, feeling for food they can't see, and a large share of their sensory cortex is given over to their paws.
+
+Everything the hiker knows about the terrain comes from two places: the ground under their enhanced feet right now, and their memory of the ground behind them. A skilled hiker uses both. Recent steps tell them where to place the next foot, and older ones tell them their rough bearing.
+
+But notice what the amnesia does. A natural memory fades. The last few steps are vivid: the slope, the texture, the angle of the ground. The ground from an hour ago is a general impression: ascending, veering left. Our hiker's memory doesn't fade. Every step of the last mile is as vivid as the one they just took, and everything before that is gone.
+
+This is our risk model from Artifact 01. The ground underfoot is the latest day's returns, felt in full detail. The mile of memory is the regression window: 252 trading days, every one weighted equally, so think of a mile as roughly a trading year. The hiker's sense of bearing is the betas. And tomorrow is always a step in the dark.
+
+What does our hiker want? To survive. In a conventional survival situation, the first priority is avoiding injury, which is hopefully obvious and relatable. The second is finding civilization, which tends to sit near water, and water collects downhill. A hiker chasing water heads downhill, much as an investor chasing returns heads toward them. But the optimizer in Artifact 01 minimized portfolio variance; it had no interest in returns at all. So our hiker puts injury first and last. In total darkness, slopes are where ankles break, so they want zero gradient: to stay at the same elevation as much as possible, treating every climb and every descent as a risk.
+
+## 4. Rock or Turn?
+
+Let's observe our hiker for a few steps and imagine what they're thinking.
+
+The first step feels like dry, packed dirt. The next few dozen yards are similar, with a little gravel and a few buried stones. Then the next step meets a vertical face carved into the ground, like the riser of a stair.
+
+*Is it a stray boulder I can scramble over? Or the start of a rocky climb? Do I keep my bearing, or turn?*
+
+It's impossible to tell.
+
+In markets, an unusually large return deviation between a factor and an asset can significantly weaken an exposure estimate. But a large deviation can also signal that the prior relationship between asset and factor is changing. The first is the stray boulder. Our hiker, as built in Artifact 01, treats every step of their memory the same, so a single boulder can shove their bearing off course even though the ground beyond it runs level. The second is the start of a rocky climb: the ground itself has changed.
+
+*How are we supposed to distinguish between an outlier of a continuing relationship and an early signal of regime change?*
+
+In real time, both scenarios look identical. It's impossible to know until enough time passes to make the classification obvious. Yet if we did know the correct classification, we would choose to model that data point differently.
+
+### Steady your footing
+
+Assume the first scenario: the rare, large deviation is a *true outlier*, a stray boulder. To preserve the prior exposure estimate, it's rational to cap the impact of this one day and push the rest of the deviation into the asset's residuals. The hiker steps over the boulder and doesn't let it throw off their sense of direction.
+
+This is the idea behind robust regression. The version in Artifact 02 is Huber regression, which treats ordinary deviations the usual way and limits how hard any single large one can pull on the estimate.
+
+This strategy assumes we can recognize outliers. That requires guessing a distribution, by fitting one or simply picking one, and then setting a threshold that sorts each observation into "normal" or "outlier."
+
+There's a risk in that guess. If the ground shifts beneath the distribution we assumed, real changes get misclassified as noise. A hiker who has decided that every boulder is a stray will eventually fall off their path when they actually needed to turn.
+
+### Trust the recent steps
+
+Now assume the second scenario: the large deviation is the beginning of a new relationship between the asset and the factor. The ground has turned. Here we'd want to update to the new asset-factor relationship as quickly as possible. To do this we would down-weight the older days in the window that captured the old relationship so the most recent days carry more influence. The hiker trusts the last few steps over the impression from an hour ago. In other words, we give the hiker a memory that fades.
+
+The standard way to do this is an exponentially weighted (EWMA) regression: each day's weight shrinks by a fixed fraction as it ages, so yesterday counts the most and last year counts very little.
+
+Just like the first case, this requires a guess: a rule for how quickly an observation "ages," and the parameters that go with it.
+
+And forgetting has a price. The hiker still carries a mile of memory, but less of it is really speaking. Statisticians measure this with the *effective sample size*: the number of equally weighted observations that would carry the same information. Take a fast fade as an example, an exponential span of 63 trading days. Nearly half the weight lands on the most recent 21 days, and the 252-day window holds about as much information as 63 equally weighted days. On our hiker's scale, nearly half of what they rely on comes from the last 150 yards, and their mile of memory is worth about a quarter mile remembered evenly. A hiker who forgets quickly is nimble, but jumpy. With less ground to vouch for their bearing, they change course at every loose stone.
+
+### Both, at once
+
+The two instincts are independent and can be applied at the same time. A hiker can refuse to be thrown by a single boulder *and* weight recent steps more than old ones. In regression terms, the Huber correction and the exponential weights simply multiply together. Neither instinct can be verified in the dark. Each is a guess about the ground that the hiker can't check until it's too late to matter.
+
+## 5. The Stitched Wilderness
+
+Our bootstrap paths make the hiker's job much harder. Every 150 yards or so, the terrain can change to a completely different wilderness. Our hiker's previous step could have been in a subtropical wetland and the next one in a desert.
+
+That's what makes the bootstrap ensemble a curious stress test. By construction, every 21 trading days the model may encounter a block sampled from a different regime. At each seam, the model has to either smooth over the discontinuity (steady its footing) or jump to the new relationship (trust the recent steps).
+
+There's a twist: because blocks are sampled with replacement, the same stretch of ground can appear twice in one path. The hiker gets déjà vu. They've felt this exact boulder before, and if both encounters fall within their mile of memory, that stretch counts double. The hiker becomes more confident about it than the history ever earned. It's one quirk among many; random sampling can stitch together all kinds of strange terrain (Figure 1 in Artifact 01 shows how the paths are built).
+
+The realized path, by contrast, has no seams that we put there. We might expect it to encounter fewer regime changes, and therefore produce more tightly distributed beta estimates than the stitched paths.
+
+Now the question from earlier has a shape. If the seams are that disruptive, could the hiker *feel* them? Could a model tell stitched ground from real ground?
+
+## 6. What Comes Next
+
+Artifact 02 puts the two instincts to the test. It crosses them, equal or fading memory with ordinary or robust regression, and sends every combination across the same realized ground and the same stitched wilderness. Everything else stays fixed, so any difference in how the hiker fares comes from how they remember and how hard they flinch at a boulder.
+
+How would we know if a memory serves the hiker well? Survival doesn't hand out trophies. There's no finish line, and making it through tonight says nothing certain about tomorrow. The closest idea I know is *fitness*, borrowed from evolution: not winning a single race, but holding up across many environments. For a memory, the first sign of fitness is modest: betas that agree across the ensemble. If a way of remembering produces exposures that hold steady whether the hiker crosses the realized ground or a stitched wilderness, then less of what the model believes depends on the order in which history happened to arrive. Downstream, fitness means portfolios with lower variance out of sample: a hiker who stays closer to level ground, path after path.
+
+Artifact 02 releases the hikers as independent trials. They never meet, and they never compare notes. But from outside, we can lay their bearings side by side, and I suspect the more interesting result lives where they disagree. A hiker with a long, even memory and one with a short, fading memory report the same bearing while the ground runs level. When the terrain starts to bend, the short memory notices first, and a gap opens between the two bearings. That gap behaves like a derivative. If the relationship between an asset and its factors is drifting steadily, the gap is roughly the drift rate multiplied by the difference in how far back each memory looks. The same goes for the hiker who shrugs off boulders and the one who feels every one: when their bearings split, the ground is doing something unusual.
+
+Traders have done a crude version of this with prices for decades, comparing a fast moving average to a slow one. Doing it with exposures, across an ensemble of paths, might let us feel a turn as it begins instead of recognizing it a mile later. That would be a step from measuring risk toward forecasting it. And if hikers could feel each other's bearings as they walk, they would stop being independent trials and start being a party. That's a different experiment, and I'm not sure yet whether the ground there will hold, so treat it as a direction, not a result.
+
+Then there's the question the stitched wilderness left us with: could a model feel the seams? That's where Artifact 03 is headed.
+
+Underneath all of it is the question I keep coming back to: does any kind of memory actually beat remembering every step equally? Take it to the extreme and give a hiker no memory at all. With nothing to go on, every direction is equally unknown, and the most cautious thing they can do is spread their weight evenly. A minimum-variance optimizer with no memory does the same: knowing nothing about how assets move together, it lands on equal weights across all of them. That naive portfolio has a reputation for being stubbornly hard to beat. It's possible that the plain hiker, with a mile of equally vivid memory, was the fittest one all along. It's even possible the fittest hiker remembers nothing.
+
+Either way, the hiker keeps walking, and tomorrow is still dark. The best we can do is choose what to remember, and how hard to flinch when the ground surprises us.

@@ -20,4 +20,14 @@ Most analysis focuses on the single path that occurred. Pathspace asks what chan
 
 </div>
 
+<div class="psl-card" markdown="1">
+
+### Walking in the Dark
+
+A risk model has memory but no sense of time. Moving it onto a dark hillside asks what it should remember, and how hard it should flinch when the ground surprises it.
+
+[Read →](/writing/walking-in-the-dark/){: .psl-card-link }
+
+</div>
+
 </div>
