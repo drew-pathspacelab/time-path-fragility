@@ -15,7 +15,7 @@ Artifact 01 bootstraps alternative time paths from the same asset and factor ret
 - cumulative portfolio return dispersion across bootstrap paths
 - realized cumulative return overlaid against the bootstrap distribution
 
-The export-oriented notebook is `artifact_01_bootstrap_optimizer.org`. The working lab notebook is `bootstrap_optimizer_walkthrough.org`.
+The export-oriented notebook is `artifact_01_bootstrap_optimizer.org`. The working lab notebook is `notebooks/bootstrap_optimizer_walkthrough.org`. Artifact 02 (ensemble beta stability under OLS/Huber and equal/EWMA time weighting) is in progress in `artifact_02_beta_stability.org`.
 
 ## Implementation
 
@@ -34,24 +34,28 @@ The codebase currently includes:
 
 Returns are stored as log returns. Asset arrays use `asset_returns(time, asset)`, factor arrays use `factor_returns(time, factor)`, and bootstrap datasets add a `path` dimension.
 
-## GitHub Pages
+## Website
 
-The Pages landing page lives at `docs/index.html`. If GitHub Pages is configured to deploy from the `docs/` folder on the main branch, GitHub will serve that file as the site home page instead of using this README.
+The Pathspace Lab website (<https://pathspacelab.org>) lives in its own repository, [pathspacelab.org](https://github.com/drew-pathspacelab/pathspacelab.org). Published figures are copied from `notebooks/figures/` into that repo's `assets/artifact-<NN>/`.
 
-Selected artifact figures are copied into `docs/assets/artifact-01/` so the website has stable image paths independent of local notebook output directories.
+## Design Specs
+
+`docs/` holds the technical specifications the code implements: data schema, forward decomposition, bootstrap mechanics, perturbations, and the universe definition.
 
 ## Repository Layout
 
 ```text
-docs/                         Website landing page, docs, and published artifact assets
+docs/                         Technical specs (schema, decomposition, bootstrap, perturbations, universe)
 src/data/                     Loading, cache, validation, and bootstrap sampling
 src/model/                    Factor regression and risk decomposition
 src/optimizer/                Estimators, optimizer, and diagnostics
 src/viz/                      Plotting helpers
+tests/                        pytest suite
+notebooks/                    Working lab notebooks (figures/ and reports/ are gitignored)
 artifact_01_bootstrap_optimizer.org
-bootstrap_optimizer_walkthrough.org
+artifact_02_beta_stability.org
 ```
 
 ## Status
 
-The first artifact is now runnable end-to-end locally. The next cleanup step is to extract reusable org helper blocks into Python modules as they stabilize, then add a small static artifact page per research output under `docs/`.
+The first artifact is now runnable end-to-end locally. The next cleanup step is to extract reusable org helper blocks into Python modules as they stabilize.
