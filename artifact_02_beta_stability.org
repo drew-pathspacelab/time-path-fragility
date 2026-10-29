@@ -1,0 +1,435 @@
+#+TITLE: Artifact 02 — Ensemble Beta Stability and the Realized Path
+#+AUTHOR: Drew Tilley
+#+OPTIONS: toc:2 num:nil html-style:nil
+#+PROPERTY: header-args:jupyter-python :session risk-env :kernel python3 :dir (projectile-project-root) :mkdirp yes
+#+LATEX_HEADER: \usepackage{amsmath}
+
+#+begin_src jupyter-python :exports code :results none
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from src.viz.formatting import orgprint
+
+%matplotlib inline
+plt.style.use('psl')
+#+end_src
+
+* 1. Question
+
+All regression models require modeling decisions and in Artifact 01 we held the regression model fixed, choosing to only vary the ordering of history. In Artifact 01, the factor exposures were estimated using the preceding 252 trading days with every day receiving equal weight in the ordinary least squares (OLS) regression. Here, we will investigate how our modeling choices impact the resulting volatility experienced by the minimum-variance portfolio.
+
+In real time markets, an unusually large return deviation between a factor and an asset can significantly weaken an exposure estimate. However, a large deviation can also signify a prior asset and factor relationship is changing.
+
+/How are we suppose to distinguish between an outlier of a continuing relationship and an early signal of regime change?/
+
+Both scenarios appear identical in real time, so it is impossible to know until enough time passes that would make the classification obvious. But, if we did actually know the correct classification we would choose to model that data point differently.
+
+Let's assume the first scenario, that the rare and large deviation is a /true outlier/. To preserve the prior exposure estimate, there is a rational modeling choice to cap the impact of this rare day and reassign the remaining deviation to the asset's residuals. This procedure of catching outliers and reweighting assumes that we can identify outliers in order to reweight them. This assumption requires us to guess a distribution (either by fitting or simply picking) and additionally set a soft classifier threshold to assign observations as either 'normal' or 'outlier'.
+
+# I could talk about the risks of this strategy: that transiently the distribution will shift
+# beneth the guessed distribution causing datapoints to be misclassified. Dulling our ability to change.
+
+Now let's assume the second scenario is true, that the large deviation is the beginning of a new correlation relationship between the asset and factor. Our weighting strategy would be to update to the new correlation relationship as soon as possible. In order to achieve this, we would have to down weight the older days in our regression window that were capturing the previous relationship, so that the most recent days carry more influence in the exposure estimate. However, just like in the in the previous case, we have to assume a model to 'age' an observation and set its respective parameters.
+
+The outlier classification strategy (Strategy I) and the observation aging strategy (Strategy II) are indepedent and can be applied simotaneously. Our bootstrap paths provide an intriguing stress-test for our risk model because we know from their construction that every 21 days the model potentially encounters a time-block sampled from a different regime. However, the random sampling with replacement also has the potential to place idential time blocks within the same path and the model would encounter the same block twice making reducing the risk associated with guessing the distribution in Strategy I. The discontinuities inherent from our time sampling requires the model to smooth the seams (I) and/or 'jump' to the next relationship (II). We could expect that the realized path would encounter fewer regime changes and therefore more tightly distributed beta estimates.
+
+This artifact evaluates each weighting strategy by the per-path distribution of estimated betas and the out-of-sample portfolio variance.
+
+* 2. Experimental Design
+
+Each regression strategy is a weighted least-squares fit in which every observation's weight is the product of two choices. The first choice weights the observation by age: either equal weighting over a fixed window, or exponential decay that favors recent observations. The second choice is a weight by residual size: either none (ordinary least squares) or Huber weighting, which reduces the influence of observations with unusually large residuals. Crossing the two produces six configurations.
+
+#+CAPTION: Estimator Configurations
+#+NAME: tbl:estimators
+| Configuration | Time Weighting       | Effective Window | Loss    |
+|---------------+----------------------+------------------+---------|
+| OLS-252       | Equal                | 252 days         | Squared |
+| Huber-252     | Equal                | 252 days         | Huber   |
+| OLS-63        | Equal                | 63 days          | Squared |
+| Huber-63      | Equal                | 63 days          | Huber   |
+| EWMA-OLS-63   | Exponential, span 63 | 63 days          | Squared |
+| EWMA-Huber-63 | Exponential, span 63 | 63 days          | Huber   |
+
+OLS-252 reproduces the estimator used in Artifact 01 and serves as the baseline. Comparing OLS-63 with EWMA-OLS-63 separates the effect of a shorter memory from the effect of discounting older observations smoothly: an exponential span of 63 days matches the equal 63-day window in both center of mass and effective sample size. Comparing each OLS configuration with its Huber counterpart isolates the effect of downweighting large residuals.
+
+The same time weights are applied to the factor covariance and residual variances, so each covariance matrix reflects a single, consistent memory rule.
+
+The workflow is:
+
+- load the asset universe, factors, and the 10 block-bootstrapped paths from Artifact 01
+- estimate rolling factor decompositions under each of the six configurations
+- estimate factor-model covariance matrices at monthly rebalance dates
+- optimize a long-only minimum-variance portfolio at each rebalance date
+- summarize regression and optimizer diagnostics
+- compare cross-path beta dispersion across configurations
+- compare realized out-of-sample portfolio variance across configurations
+
+All configurations are evaluated on identical paths, windows, and rebalance dates, so differences between them are attributable to the estimator alone. Comparisons are made between configurations within each path rather than between the bootstrap ensemble and the realized path. Because rebalance dates
+coincide with bootstrap block boundaries, each bootstrap holding period begins on a freshly sampled block, while the realized path's holding period continues the history in its window. Whether that difference matters is the subject of Artifact 03.
+
+* 3. Data
+
+The asset universe, factor set, date range, and bootstrap paths are unchanged and carried over from [[https://pathspacelab.org/research/artifact-01/][Artifact 01]].
+
+#+begin_src jupyter-python :exports code :results none
+from src.data.interface import get_returns
+from src.data.sampling import bootstrap_time_paths
+from src.data.universe import load_universe
+
+UNIVERSE = load_universe()
+ASSETS = UNIVERSE.assets
+FACTORS = UNIVERSE.market
+
+# Fixed end date keeps this artifact reproducible while the loader/caches evolve.
+END = "2026-08-04"
+START = (pd.Timestamp(END) - pd.DateOffset(years=10)).strftime("%Y-%m-%d")
+
+N_PATHS = 10
+BLOCK_SIZE = 21
+SEED = 42
+
+WINDOW = 252
+REBALANCE_EVERY = 21
+
+# Load data and perform the bootstrap sampling.
+asset_returns = get_returns(ASSETS, START, END, use_cache=True)
+factor_returns = get_returns(FACTORS, START, END, is_factor=True, use_cache=True)
+
+# .load() pulls the dask-backed paths into memory once; otherwise every
+# per-path .sel() inside the regression loops re-reads from the cache.
+paths_ds = bootstrap_time_paths(
+    asset_da=asset_returns,
+    factor_da=factor_returns,
+    block_size=BLOCK_SIZE,
+    n_paths=N_PATHS,
+    seed=SEED,
+    use_cache=True,
+).load()
+#+end_src
+
+Artifact 02 simulation hyperparameters and regression configurations are defined below.
+
+#+begin_src jupyter-python :exports code :results none
+# New in Artifact 02
+SPAN = 126             # EWMA span (trading days); alpha = 2 / (SPAN + 1)
+HUBER_EPSILON = 1.345  # Huber threshold in robust-scale units (95% efficiency under normal errors)
+
+# estimator x weighting grid; "ols_equal" is the Artifact 01 baseline
+SPECS = {
+    "ols_equal":   dict(estimator="ols",   weighting="equal"),
+    "ols_ewma":    dict(estimator="ols",   weighting="ewma", span=SPAN),
+    "huber_equal": dict(estimator="huber", weighting="equal", huber_epsilon=HUBER_EPSILON),
+    "huber_ewma":  dict(estimator="huber", weighting="ewma", span=SPAN, huber_epsilon=HUBER_EPSILON),
+}
+#+end_src
+
+* 4. Methodology
+
+Every rolling estimate sees only the trailing 252-day window. Equal weighting gives each day in the window weight $1/252$.
+This isolates differences caused by the regression strategy. Two new hyperparameters are introduced by the additional regressions: the EWMA span and the Huber threshold.
+
+** 4.1 Time-Weighting (EWMA)
+
+Every rolling estimate sees only the trailing 252-day window. Equal weighting gives each day in the window weight $1/252$. EWMA weights an observation of age $k$ days by $(1-\alpha)^k$, with $\alpha = 2/(\text{span}+1)$, and renormalizes within the window. An untruncated EWMA with span $N$ has the same mean data age, $(N-1)/2$, as an equal-weighted $N$-day window. Truncation to the window cuts off the tail and makes the kernel younger than that.
+
+Two quantities summarize a kernel. The /mean age/ is how far back the estimate effectively looks. The /effective sample size/, $n_\text{eff} = (\sum w)^2 / \sum w^2$, is how many equally weighted observations carry the same information. Shorter spans react faster, and pay for it with a smaller $n_\text{eff}$ and noisier betas.
+
+#+begin_src jupyter-python :exports both :results output raw
+from src.model.time_weights import effective_sample_size, mean_age, time_weights
+
+kernels = {
+    "equal":         time_weights(WINDOW, "equal"),
+    "ewma span=252": time_weights(WINDOW, "ewma", span=252),
+    "ewma span=126": time_weights(WINDOW, "ewma", span=126),
+    "ewma span=63":  time_weights(WINDOW, "ewma", span=63),
+}
+
+kernel_df = pd.DataFrame(
+    {
+        name: {
+            "mean_age_days": mean_age(w),
+            "effective_n": effective_sample_size(w),
+            "weight_last_21d": w[-21:].sum(),
+            "weight_oldest_126d": w[:126].sum(),
+        }
+        for name, w in kernels.items()
+    }
+).T
+kernel_df.index.name = "kernel"
+
+orgprint(kernel_df.round(3))
+#+end_src
+
+#+RESULTS:
+: | kernel        |   mean_age_days |   effective_n |   weight_last_21d |   weight_oldest_126d |
+: |---------------+-----------------+---------------+-------------------+----------------------|
+: | equal         |         125.5   |       252     |             0.083 |                0.5   |
+: | ewma span=252 |          86.058 |       191.922 |             0.178 |                0.269 |
+: | ewma span=126 |          57.799 |       121.468 |             0.289 |                0.119 |
+: | ewma span=63  |          30.915 |        62.958 |             0.487 |                0.018 |
+
+#+begin_src jupyter-python :file notebooks/figures/artifact02_time_weight_kernels.png :exports both :results graphics file
+fig, ax = plt.subplots(figsize=(10, 3.5))
+
+age = np.arange(WINDOW - 1, -1, -1)  # weights are ordered oldest -> newest
+for name, w in kernels.items():
+    ax.plot(age, w, label=name)
+
+ax.invert_xaxis()
+ax.set_xlabel("Observation age (trading days before estimate date)")
+ax.set_ylabel("Weight")
+ax.set_title("Time-weighting kernels within a 252-day window")
+ax.legend()
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/artifact02_time_weight_kernels.png]]
+
+** 4.2 Robust Regression (Huber)
+
+OLS minimizes squared residuals, so a handful of extreme days can pull a 252-day beta a long way. The Huber loss is quadratic for residuals up to $\epsilon$ robust-scale units and linear beyond that:
+
+\[
+\rho_{\epsilon_}(u) =
+\begin{cases}
+\tfrac{1}{2}u^2 & |u| \le \epsilon \\
+\epsilon |u| - \tfrac{1}{2}\epsilon^2 & |u| > \epsilon
+\end{cases}
+\qquad
+u = \frac{r_i(t) - \alpha_i - \beta_i^{\top} f(t)}{s_i}
+\]
+
+The fit is iteratively reweighted least squares. Each observation's weight is its time weight multiplied by $\min(1, \epsilon/|u|)$, so time-weighting and robustness combine without interfering. The scale $s_i$ is the time-weighted MAD of the initial weighted-least-squares residuals, held fixed during the iterations (=huber_scale_method = "mad_fixed"= in the dataset attrs). Re-estimating the scale on every iteration, the statsmodels default, cycled without converging in about 10% of EWMA windows during testing. The swing was tiny, but the result then depended on where the loop stopped.
+
+Huber changes $B$, $\alpha$, and the residuals, and therefore $D$. It does not change the factor covariance $F$. Because Huber no longer minimizes squared residuals, the in-sample residual variance, and so $D$, is slightly /larger/ than under OLS.
+
+** 4.3 Realized Path: Estimator × Weighting
+
+The four specifications are fit to the realized path. Timings are recorded to size the ensemble run (Section 4.5).
+
+#+begin_src jupyter-python :exports both :results output raw
+import time
+from src.model.regression import rolling_forward_decompose
+
+realized_models = {}
+fit_seconds = {}
+for name, spec in SPECS.items():
+    t0 = time.perf_counter()
+    realized_models[name] = rolling_forward_decompose(
+        asset_returns,
+        factor_returns,
+        window=WINDOW,
+        include_intercept=True,
+        **spec,
+    )
+    fit_seconds[name] = time.perf_counter() - t0
+
+timing_df = pd.Series(fit_seconds, name="seconds_per_path").to_frame()
+timing_df["x_ols_equal"] = timing_df["seconds_per_path"] / timing_df.loc["ols_equal", "seconds_per_path"]
+timing_df["est_minutes_all_paths"] = timing_df["seconds_per_path"] * N_PATHS / 60
+timing_df.index.name = "spec"
+
+orgprint(timing_df.round(2))
+#+end_src
+
+#+RESULTS:
+: | spec        |   seconds_per_path |   x_ols_equal |   est_minutes_all_paths |
+: |-------------+--------------------+---------------+-------------------------|
+: | ols_equal   |               0.25 |          1    |                    0.04 |
+: | ols_ewma    |               0.27 |          1.06 |                    0.04 |
+: | huber_equal |               9.24 |         36.47 |                    1.54 |
+: | huber_ewma  |              11.91 |         46.99 |                    1.98 |
+
+Each dataset records how it was produced. The factor-model estimators read these attrs in Section 4.4.
+
+#+begin_src jupyter-python :exports both :results output
+print(realized_models["huber_ewma"].attrs)
+#+end_src
+
+#+RESULTS:
+: {'window': 252, 'regression_type': 'rolling_huber', 'include_intercept': True, 'factor_model': 'sector_etf', 'estimator': 'huber', 'weighting': 'ewma', 'span': 126.0, 'huber_epsilon': 1.345, 'huber_scale_method': 'mad_fixed'}
+
+#+begin_src jupyter-python :file notebooks/figures/artifact02_realized_beta_by_spec.png :exports both :results graphics file
+ASSET, FACTOR = "AAPL", "XLK"
+
+def beta_series(name):
+    return realized_models[name]["betas"].sel(asset=ASSET, factor=FACTOR)
+
+fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True, sharey=True)
+panels = [
+    ("(A) Time-weighting: OLS", ["ols_equal", "ols_ewma"]),
+    ("(B) Estimator: equal weighting", ["ols_equal", "huber_equal"]),
+]
+for ax, (title, names) in zip(axes, panels):
+    for name in names:
+        beta_series(name).plot(ax=ax, label=name, linewidth=1.2)
+    ax.set_title(title, loc="left")
+    ax.set_xlabel("")
+    ax.set_ylabel("Beta")
+    ax.legend(loc="upper right")
+
+fig.suptitle(f"Rolling beta of {ASSET} on {FACTOR}, realized path")
+fig.tight_layout()
+#+end_src
+
+#+RESULTS:
+[[file:notebooks/figures/artifact02_realized_beta_by_spec.png]]
+
+The table summarizes all asset-factor betas on the realized path, relative to the OLS/equal baseline:
+- =median_abs_dbeta= and =p95_abs_dbeta= measure how far each specification moves the betas.
+- =median_abs_daily_beta_change= measures how jittery the beta series are.
+- =median_resid_var_ratio= is the residual variance relative to the baseline, a direct view of what happens to $D$.
+
+#+begin_src jupyter-python :exports both :results output raw
+base = realized_models["ols_equal"]
+valid = base["betas"].notnull().all(dim=("asset", "factor"))  # drop the (WINDOW - 1) warm-up days
+
+rows = {}
+for name, ds in realized_models.items():
+    dbeta = np.abs(ds["betas"] - base["betas"]).where(valid)
+    daily_change = np.abs(ds["betas"].where(valid).diff("time"))
+    resid_var_ratio = (
+        ds["residuals"].where(valid).var("time")
+        / base["residuals"].where(valid).var("time")
+    )
+    rows[name] = {
+        "median_abs_dbeta": float(dbeta.median()),
+        "p95_abs_dbeta": float(dbeta.quantile(0.95)),
+        "median_abs_daily_beta_change": float(daily_change.median()),
+        "median_resid_var_ratio": float(resid_var_ratio.median()),
+    }
+
+spec_summary = pd.DataFrame(rows).T
+spec_summary.index.name = "spec"
+
+orgprint(spec_summary.round(4))
+#+end_src
+
+#+RESULTS:
+: | spec        |   median_abs_dbeta |   p95_abs_dbeta |   median_abs_daily_beta_change |   median_resid_var_ratio |
+: |-------------+--------------------+-----------------+--------------------------------+--------------------------|
+: | ols_equal   |             0      |          0      |                         0.0032 |                   1      |
+: | ols_ewma    |             0.063  |          0.2764 |                         0.0064 |                   0.7651 |
+: | huber_equal |             0.0288 |          0.1446 |                         0.0037 |                   1.0284 |
+: | huber_ewma  |             0.0654 |          0.2849 |                         0.0079 |                   0.8113 |
+
+A caution on =median_resid_var_ratio= for the EWMA specifications. The stored residual at date $t$ comes from the fit whose window ends at $t$, and EWMA gives day $t$ the most weight in that fit. Part of EWMA's lower residual variance is therefore a mechanical in-sample effect, not better explanatory power.
+
+** 4.4 From Betas to Covariance
+
+=compute_cov(method="factor_model")= builds $\Sigma = B F B^\top + D$. With =weighting= left unset, it uses the weighting recorded by the regression, so $F$ and $D$ are estimated on the same time scale as $B$. The loop below turns any mismatch into an error to confirm that none occurs.
+
+#+begin_src jupyter-python :exports both :results output raw
+import warnings
+from src.optimizer import compute_cov
+from src.optimizer.estimators import TimeScaleMismatchWarning
+
+t_end = pd.Timestamp(asset_returns.time[-1].values)
+t_start = t_end - pd.offsets.BDay(WINDOW - 1)
+window = slice(t_start, t_end)
+factor_slice = factor_returns.sel(time=window)
+
+final_covs = {}
+for name, ds in realized_models.items():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", TimeScaleMismatchWarning)
+        final_covs[name] = compute_cov(
+            ds.sel(time=window),
+            factor_returns=factor_slice,
+            method="factor_model"
+        )
+
+# Annualized volatility implied by each covariance on the final date
+vol_df = pd.DataFrame(
+    {name: np.sqrt(np.diag(cov) * 252) for name, cov in final_covs.items()},
+    index=final_covs["ols_equal"].index,
+)
+vol_df.index.name = "asset"
+
+orgprint(vol_df.map(lambda x: f"{x:.1%}"))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+| asset   | ols_equal   | ols_ewma   | huber_equal   | huber_ewma   |
+|---------+-------------+------------+---------------+--------------|
+| AAPL    | 26.1%       | 28.6%      | 25.6%         | 28.4%        |
+| AMT     | 26.2%       | 28.1%      | 25.6%         | 27.1%        |
+| CAT     | 39.5%       | 44.1%      | 39.3%         | 45.0%        |
+| JNJ     | 18.6%       | 22.4%      | 18.6%         | 22.5%        |
+| JPM     | 22.7%       | 22.5%      | 22.6%         | 22.6%        |
+| KO      | 18.7%       | 22.2%      | 18.8%         | 22.1%        |
+| META    | 38.7%       | 43.7%      | 38.7%         | 44.7%        |
+| MSFT    | 32.0%       | 40.6%      | 31.3%         | 40.3%        |
+| NVDA    | 37.8%       | 37.8%      | 37.5%         | 37.0%        |
+| PG      | 19.8%       | 21.2%      | 20.0%         | 21.3%        |
+| XOM     | 25.4%       | 27.0%      | 25.5%         | 27.5%        |
+#+end_example
+
+Overriding the weighting on EWMA betas triggers the mismatch warning:
+
+#+begin_src jupyter-python :exports both :results output
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    compute_cov(
+        realized_models["ols_ewma"].sel(time=window),
+        factor_returns=factor_slice,
+        method="factor_model",
+        weighting="equal",
+        shrinkage=COV_SHRINKAGE,
+    )
+
+for w in caught:
+    print(f"{w.category.__name__}: {w.message}")
+#+end_src
+
+#+RESULTS:
+: TimeScaleMismatchWarning: factor-model moments use equal weighting but the betas were estimated with ewma(span=126.0) weighting; B and F/D describe different time scales
+
+** 4.5 Performance Notes
+
+The regressions are the expensive step of the ensemble. Measured on this machine (11 assets, 10 factors plus intercept, 2,511 days):
+
+| Specification        | Per path | 10 paths (serial) |
+|----------------------+----------+-------------------|
+| OLS, equal or EWMA   | ~0.25 s  | ~2.5 s            |
+| Huber, equal         | ~10 s    | ~1.7 min          |
+| Huber, EWMA          | ~13 s    | ~2.2 min          |
+
+Pitfalls:
+
+- *Huber is ~40–50× slower than OLS.* OLS is a single least-squares solve per window. Huber needs an iterative solve (a median of about 20 iterations on this data) plus a weighted-median scale estimate. Fitting both Huber specifications across the ensemble takes minutes, not seconds, so fit each (spec, path) once and keep the result. Don't recompute inside plotting or diagnostic cells.
+- *The rolling fit runs every day, not only at rebalance dates.* Fitting only every 21 days would look like a 21× saving, but $D$ and the residual mean are estimated from the daily residual series inside each window, and every residual comes from that day's fit. Skipping days would change the model, not just speed it up.
+- *Crisis windows converge slowly.* Around March–April 2020, a few Huber windows need 60–100 iterations instead of about 20, because many residuals sit near the threshold. The default =max_iter= is 200. A =RuntimeWarning= means some windows hit that cap. The earlier cap of 50 stopped six crisis windows short, which changed betas by less than $10^{-6}$, but the warning should still not be silenced.
+- *Keep =update_scale= at its default of False.* Re-estimating the scale inside the loop can cycle under EWMA weights (Section 4.2).
+- *Load the bootstrap paths into memory.* =bootstrap_time_paths= returns dask-backed arrays. The =.load()= in Section 3 avoids a cache read on every per-path =.sel()=.
+- *Parallelism across paths helps, but only so much.* Paths are independent, so =joblib= can fit them concurrently. On this machine, Huber/EWMA over 10 paths dropped from ~140 s serial to ~51 s. Four workers were as fast as eight, and limiting BLAS threads made no difference. That points to a hardware ceiling rather than thread contention, so check =n_jobs= on other machines rather than assuming linear scaling.
+- *Very long spans are close to equal weighting.* Inside a 252-day window, a span of 252 already has a mean age of 86 days, not 125.5. A span well above the window length would give nearly flat weights and add little over =ols_equal=.
+
+The helper below fits one specification across all bootstrap paths in parallel. The output is a dict of path datasets, in the same shape Artifact 01 builds.
+
+#+begin_src jupyter-python :exports code :results none
+from joblib import Parallel, delayed
+
+def fit_path(path_id, spec):
+    return int(path_id), rolling_forward_decompose(
+        paths_ds.asset_returns.sel(path=path_id),
+        paths_ds.factor_returns.sel(path=path_id),
+        window=WINDOW,
+        include_intercept=True,
+        **spec,
+    )
+
+def fit_ensemble(spec, n_jobs=4):
+    results = Parallel(n_jobs=n_jobs)(
+        delayed(fit_path)(path_id, spec) for path_id in paths_ds.path.values
+    )
+    return dict(results)
+
+# ensemble_models[spec_name][path_id] -> forward_ds
+ensemble_models = {name: fit_ensemble(spec) for name, spec in SPECS.items()}
+#+end_src
+
+* 5. Diagnostics
+
+* 6. Discussion
