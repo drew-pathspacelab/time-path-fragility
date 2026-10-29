@@ -1,7 +1,7 @@
 ---
 layout: single
 title: "Walking in the Dark"
-excerpt: "A risk model has memory but no sense of time. Moving it onto a dark hillside asks what it should remember, and how hard it should flinch when the ground surprises it."
+excerpt: "A risk model has memory but no sense of time. So I sent a hiker wandering in the dark to asked what to remember.”
 permalink: /writing/walking-in-the-dark/
 author: drew_profile
 author_profile: true
@@ -109,7 +109,7 @@ Now the question from earlier has a shape. If the seams are that disruptive, cou
 
 ## 6. What Comes Next
 
-Artifact 02 puts the two instincts to the test. It crosses them, equal or fading memory with ordinary or robust regression, and sends every combination across the same realized ground and the same stitched wilderness. Everything else stays fixed, so any difference in how the hiker fares comes from how they remember and how hard they flinch at a boulder.
+Artifact 02 will test the two instincts. It crosses them, equal or fading memory with ordinary or robust regression, and sends every combination across the same realized ground and the same stitched wilderness. Everything else stays fixed, so any difference in how the hiker fares comes from how they remember and how hard they flinch at a boulder.
 
 How would we know if a memory serves the hiker well? Survival doesn't hand out trophies. There's no finish line, and making it through tonight says nothing certain about tomorrow. The closest idea I know is *fitness*, borrowed from evolution: not winning a single race, but holding up across many environments. For a memory, the first sign of fitness is modest: betas that agree across the ensemble. If a way of remembering produces exposures that hold steady whether the hiker crosses the realized ground or a stitched wilderness, then less of what the model believes depends on the order in which history happened to arrive. Downstream, fitness means portfolios with lower variance out of sample: a hiker who stays closer to level ground, path after path.
 
